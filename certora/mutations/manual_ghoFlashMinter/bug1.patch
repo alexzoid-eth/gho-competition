@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..d286ef4 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -44,7 +44,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+    * @dev Only pool admin can call functions marked by this modifier.
+    */
+   modifier onlyPoolAdmin() {
+-    require(ACL_MANAGER.isPoolAdmin(msg.sender), 'CALLER_NOT_POOL_ADMIN');
++    //require(ACL_MANAGER.isPoolAdmin(msg.sender), 'CALLER_NOT_POOL_ADMIN');
+     _;
+   }
+ 

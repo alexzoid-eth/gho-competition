@@ -12,7 +12,7 @@ methods{
 	// Helper getters
 	function GhoTokenHelper.getFacilitatorBucketLevel(address) external returns uint256 envfree;
 	function GhoTokenHelper.getFacilitatorBucketCapacity(address) external returns uint256 envfree;
-	function GhoTokenHelper.getFacilitatorsLableLen(address facilitator) external  returns (uint256) envfree;
+	function GhoTokenHelper.getFacilitatorsLabelLen(address facilitator) external  returns (uint256) envfree;
 	function GhoTokenHelper.toBytes32(address) external returns (bytes32) envfree;
 }
 
@@ -242,7 +242,7 @@ invariant addr_in_set_iff_in_map(address facilitator)
 */	
 
 invariant valid_facilitatorLabel(address facilitator) 
-	inFacilitatorsMapping[facilitator] <=> GhoTokenHelper.getFacilitatorsLableLen(facilitator) > 0 
+	inFacilitatorsMapping[facilitator] <=> GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0 
 	{
 		preserved {
 			requireInvariant facilitatorsList_setInvariant();

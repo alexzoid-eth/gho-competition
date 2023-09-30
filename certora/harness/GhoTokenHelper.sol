@@ -40,7 +40,7 @@ contract GhoTokenHelper {
    * @notice Returns the length of the facilitator list
    * @return The length of the facilitator list
    */
-  function getFacilitatorsLableLen(address facilitator) external view returns (uint256) {
+  function getFacilitatorsLabelLen(address facilitator) external view returns (uint256) {
     return bytes(ghoToken.getFacilitator(facilitator).label).length;
   }
 
