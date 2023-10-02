@@ -12,7 +12,7 @@ contract GhoTokenHelper {
    * @param facilitator The address of the facilitator
    * @return The facilitator bucket capacity
    */
-  function getFacilitatorBucketCapacity(address facilitator) public view returns (uint256) {
+  function getFacilitatorBucketCapacity(address facilitator) external view returns (uint256) {
     (uint256 bucketCapacity, ) = ghoToken.getFacilitatorBucket(facilitator);
     return bucketCapacity;
   }
@@ -22,7 +22,7 @@ contract GhoTokenHelper {
    * @param facilitator The address of the facilitator
    * @return The facilitator bucket level
    */
-  function getFacilitatorBucketLevel(address facilitator) public view returns (uint256) {
+  function getFacilitatorBucketLevel(address facilitator) external view returns (uint256) {
     (, uint256 bucketLevel) = ghoToken.getFacilitatorBucket(facilitator);
     return bucketLevel;
   }

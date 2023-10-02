@@ -2,45 +2,50 @@ using GhoToken as gho;
 using GhoAToken as atoken;
 using MockFlashBorrower as flashBorrower;
 
+///////////////// METHODS //////////////////////
+
 methods{
-    function _.isPoolAdmin(address user) external => retreivePoolAdminFromGhost(user) expect bool ALL;
-    function _.onFlashLoan(address, address, uint256, uint256, bytes) external => DISPATCHER(true);
+    // IPoolAddressesProvider
     function _.getACLManager() external => NONDET;
 
-    /********************************;
-	*   IERC3156FlashBorrower.sol	*;
-	*********************************/  
-    function _.isFlashBorrower(address user) external => retreiveFlashBorrowerFromGhost(user) expect bool ALL;
-    // Mock specific implementation
+    // ACL_MANAGER
+    function _.isPoolAdmin(address user) external => retrievePoolAdminFromGhost(user) expect bool ALL;
+    function _.isFlashBorrower(address user) external => retrieveFlashBorrowerFromGhost(user) expect bool ALL;
+
+    // IERC3156FlashBorrower 
+    function flashBorrower.onFlashLoan(
+        address initiator, address token, uint256 amount, uint256 fee, bytes calldata data) external;
     function flashBorrower.action() external returns (MockFlashBorrower.Action) envfree;
     function flashBorrower._transferTo() external returns (address) envfree;
     
-    /*********************;
-	*	    Tokens       *;
-	**********************/  
+    // Tokens
     function _.burn(uint256)  external=> DISPATCHER(true);
     function _.mint(address, uint256)  external=> DISPATCHER(true);
     function _.transfer(address, uint256) external => DISPATCHER(true);
     function _.balanceOf(address) external => DISPATCHER(true);
     
-    /********************************;
-	*	    GhoToken.sol	        *;
-	*********************************/  
+    // GhoToken
     function gho.allowance(address, address) external returns (uint256) envfree;
     function gho.totalSupply() external returns (uint256) envfree;
     function gho.balanceOf(address) external returns (uint256) envfree;
 
-    /********************************;
-	*	    GhoAToken.sol	        *;
-	*********************************/
+    // GhoAToken
     function atoken.getGhoTreasury() external returns (address) envfree;
 
-    /********************************;
-	*	    IGhoVariableDebtToken	*;
-	*********************************/  
+    // IGhoVariableDebtToken
     function _.decreaseBalanceFromInterest(address, uint256) external => NONDET;
     function _.getBalanceFromInterest(address) external => NONDET;
 }
+
+///////////////// DEFINITIONS /////////////////////
+
+////////////////// FUNCTIONS //////////////////////
+
+///////////////// GHOSTS & HOOKS //////////////////
+
+/**
+* ACL_MANAGER.isPoolAdmin() and ACL_MANAGER.isFlashBorrower() summarisation
+*/
 
 // keeps track of users with pool admin permissions in order to return a consistent value per user
 ghost mapping(address => bool) poolAdmin_ghost;
@@ -48,15 +53,15 @@ ghost mapping(address => bool) poolAdmin_ghost;
 // keeps track of users with flash borrower permissions in order to return a consistent value per user
 ghost mapping(address => bool) flashBorrower_ghost;
 
-// returns whether the user is a pool admin
-function retreivePoolAdminFromGhost(address user) returns bool{
+function retrievePoolAdminFromGhost(address user) returns bool{
     return poolAdmin_ghost[user];
 }
 
-// returns whether the user is a flash borrower
-function retreiveFlashBorrowerFromGhost(address user) returns bool{
+function retrieveFlashBorrowerFromGhost(address user) returns bool{
     return flashBorrower_ghost[user];
 }
+
+
 
 // a set of assumptions needed for rules that call flashloan
 function flashLoanReqs(env e){
@@ -112,7 +117,7 @@ rule integrityOfFeeSet(uint256 new_fee){
 }
 
 /**
- * @title Checks that the available liquidity, retreived by maxFlashLoan, stays the same after any action 
+ * @title Checks that the available liquidity, retrieved by maxFlashLoan, stays the same after any action 
  */
 rule availableLiquidityDoesntChange(method f, address token){
     env e; calldataarg args;
@@ -174,11 +179,10 @@ rule feeSimulationEqualsActualFee(address receiver, address token, uint256 amoun
     assert feeSimulationResult == actualFee;
 }
 
-
 rule sanity {
-  env e;
-  calldataarg arg;
-  method f;
-  f(e, arg);
-  satisfy true;
+    env e;
+    calldataarg arg;
+    method f;
+    f(e, arg);
+    satisfy true;
 }

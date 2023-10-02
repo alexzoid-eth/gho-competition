@@ -5,63 +5,63 @@ using DummyERC20WithTimedBalanceOf as discountToken;
 using DummyPool as pool;
 
 methods{
-	
-  	/***********************************;
+    
+      /***********************************;
     *    PoolAddressesProvider.sol     *;
     ************************************/
-	function _.getACLManager() external => CONSTANT;
+    function _.getACLManager() external => CONSTANT;
 
-	/************************;
+    /************************;
     *    ACLManager.sol     *;
     *************************/
-	function _.isPoolAdmin(address) external => CONSTANT;
+    function _.isPoolAdmin(address) external => CONSTANT;
 
-	/******************************************************************;
-	*	DummyERC20WithTimedBalanceOf.sol (linked to _discountToken)   *;
-	*******************************************************************/
-	// represent a random balance per block 
-	function discountToken.balanceOf(address user) external returns (uint256) with (env e) => balanceOfDiscountTokenAtTimestamp(user, e.block.timestamp) ;
+    /******************************************************************;
+    *	DummyERC20WithTimedBalanceOf.sol (linked to _discountToken)   *;
+    *******************************************************************/
+    // represent a random balance per block 
+    function discountToken.balanceOf(address user) external returns (uint256) with (env e) => balanceOfDiscountTokenAtTimestamp(user, e.block.timestamp) ;
 
-  	/************************************;
+      /************************************;
     *   DummyPool.sol (linked to POOL)  *;
     *************************************/
-	// represent a random index per block
-	function pool.getReserveNormalizedVariableDebt(address asset) external returns (uint256) with (env e) => indexAtTimestamp(e.block.timestamp);
+    // represent a random index per block
+    function pool.getReserveNormalizedVariableDebt(address asset) external returns (uint256) with (env e) => indexAtTimestamp(e.block.timestamp);
 
-	/************************************;
-	*	GhoVariableDebtTokenHarness.sol	*;
-	*************************************/
-	function discStrategy.calculateDiscountRate(uint256, uint256) external returns (uint256) envfree;
+    /************************************;
+    *	GhoVariableDebtTokenHarness.sol	*;
+    *************************************/
+    function discStrategy.calculateDiscountRate(uint256, uint256) external returns (uint256) envfree;
 
-	/************************************;
-	*	GhoVariableDebtTokenHarness.sol	*;
-	*************************************/
-	function getUserCurrentIndex(address) external returns (uint256) envfree;
-	function getUserDiscountRate(address) external returns (uint256) envfree;
-	function getUserAccumulatedDebtInterest(address) external returns (uint256) envfree;
-	function getBalanceOfDiscountToken(address) external returns (uint256);
+    /************************************;
+    *	GhoVariableDebtTokenHarness.sol	*;
+    *************************************/
+    function getUserCurrentIndex(address) external returns (uint256) envfree;
+    function getUserDiscountRate(address) external returns (uint256) envfree;
+    function getUserAccumulatedDebtInterest(address) external returns (uint256) envfree;
+    function getBalanceOfDiscountToken(address) external returns (uint256);
 
-	/********************************;
-	*	GhoVariableDebtToken.sol	*;
-	*********************************/
-	function totalSupply() external returns(uint256) envfree;
-	function balanceOf(address) external returns (uint256);
-	function mint(address, address, uint256, uint256) external returns (bool, uint256);
-	function burn(address ,uint256 ,uint256) external returns (uint256);
-	function scaledBalanceOf(address) external returns (uint256) envfree;
-	function getBalanceFromInterest(address) external returns (uint256) envfree;
-	function rebalanceUserDiscountPercent(address) external;
-	function updateDiscountDistribution(address ,address ,uint256 ,uint256 ,uint256) external;
+    /********************************;
+    *	GhoVariableDebtToken.sol	*;
+    *********************************/
+    function totalSupply() external returns(uint256) envfree;
+    function balanceOf(address) external returns (uint256);
+    function mint(address, address, uint256, uint256) external returns (bool, uint256);
+    function burn(address ,uint256 ,uint256) external returns (uint256);
+    function scaledBalanceOf(address) external returns (uint256) envfree;
+    function getBalanceFromInterest(address) external returns (uint256) envfree;
+    function rebalanceUserDiscountPercent(address) external;
+    function updateDiscountDistribution(address ,address ,uint256 ,uint256 ,uint256) external;
 }
 
 /**
 * CVL implementation of rayMul
 **/
 function rayMulCVL(uint256 a, uint256 b) returns mathint {
-	return ((a * b + (ray() / 2)) / ray());
+    return ((a * b + (ray() / 2)) / ray());
 }
 function rayDivCVL(uint256 a, uint256 b) returns mathint {
-	return ((a * ray() + (b / 2)) / b);
+    return ((a * ray() + (b / 2)) / b);
 }
 
 
@@ -85,28 +85,28 @@ function indexAtTimestamp(uint256 timestamp) returns uint256 {
 * Query discount_ghost for the [user]'s balance of discount token at [timestamp]
 **/
 function balanceOfDiscountTokenAtTimestamp(address user, uint256 timestamp) returns uint256 {
-	return discount_ghost[user][timestamp];
+    return discount_ghost[user][timestamp];
 }
 
 /**
 * Returns an env instance with [ts] as the block timestamp
 **/
 function envAtTimestamp(uint256 ts) returns env {
-	env e;
-	require(e.block.timestamp == ts);
-	return e;
+    env e;
+    require(e.block.timestamp == ts);
+    return e;
 }
 
 /**
 * @title at any point in time, the user's discount rate isn't larger than 100%
 **/
 invariant discountCantExceed100Percent(address user)
-	getUserDiscountRate(user) <= MAX_DISCOUNT()
-	{
-		preserved updateDiscountDistribution(address sender,address recipient,uint256 senderDiscountTokenBalance,uint256 recipientDiscountTokenBalance,uint256 amount) with (env e) {
-			require(indexAtTimestamp(e.block.timestamp) >= ray());
-		}
-	}
+    getUserDiscountRate(user) <= MAX_DISCOUNT()
+    {
+        preserved updateDiscountDistribution(address sender,address recipient,uint256 senderDiscountTokenBalance,uint256 recipientDiscountTokenBalance,uint256 amount) with (env e) {
+            require(indexAtTimestamp(e.block.timestamp) >= ray());
+        }
+    }
 
 /**
 * Imported rules from VariableDebtToken.spec
@@ -120,25 +120,25 @@ use rule disallowedFunctionalities;
 **/
 //pass
 rule nonMintFunctionCantIncreaseBalance(method f) filtered { f-> f.selector != sig:mint(address, address, uint256, uint256).selector } {
-	address user;
-	uint256 ts1;
-	uint256 ts2;
-	require(ts2 >= ts1);
-	// Forcing the index to be fixed (otherwise the rule times out). For non-fixed index replace `==` with `>=`
-	require((indexAtTimestamp(ts1) >= ray()) && 
-			(indexAtTimestamp(ts2) == indexAtTimestamp(ts1)));
+    address user;
+    uint256 ts1;
+    uint256 ts2;
+    require(ts2 >= ts1);
+    // Forcing the index to be fixed (otherwise the rule times out). For non-fixed index replace `==` with `>=`
+    require((indexAtTimestamp(ts1) >= ray()) && 
+            (indexAtTimestamp(ts2) == indexAtTimestamp(ts1)));
 
-	require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
-	requireInvariant discountCantExceed100Percent(user);
+    require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
+    requireInvariant discountCantExceed100Percent(user);
 
-	env e = envAtTimestamp(ts2);
-	uint256 balanceBeforeOp = balanceOf(e, user);
-	calldataarg args;
-	f(e,args);
-	mathint balanceAfterOp = balanceOf(e, user);
-	mathint allowedDiff = indexAtTimestamp(ts2) / ray();
-	// assert(balanceAfterOp != balanceBeforeOp + allowedDiff + 1);
-	assert(balanceAfterOp <= balanceBeforeOp + allowedDiff);
+    env e = envAtTimestamp(ts2);
+    uint256 balanceBeforeOp = balanceOf(e, user);
+    calldataarg args;
+    f(e,args);
+    mathint balanceAfterOp = balanceOf(e, user);
+    mathint allowedDiff = indexAtTimestamp(ts2) / ray();
+    // assert(balanceAfterOp != balanceBeforeOp + allowedDiff + 1);
+    assert(balanceAfterOp <= balanceBeforeOp + allowedDiff);
 }
 
 /**
@@ -146,21 +146,21 @@ rule nonMintFunctionCantIncreaseBalance(method f) filtered { f-> f.selector != s
 **/
 // pass
 rule nonMintFunctionCantIncreaseScaledBalance(method f) filtered { f-> f.selector != sig:mint(address, address, uint256, uint256).selector } {
-	address user;
-	uint256 ts1;
-	uint256 ts2;
-	require(ts2 >= ts1);
-	require((indexAtTimestamp(ts1) >= ray()) && 
-			(indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
+    address user;
+    uint256 ts1;
+    uint256 ts2;
+    require(ts2 >= ts1);
+    require((indexAtTimestamp(ts1) >= ray()) && 
+            (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
 
-	require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
-	requireInvariant discountCantExceed100Percent(user);
-	uint256 balanceBeforeOp = scaledBalanceOf(user);
-	env e = envAtTimestamp(ts2);
-	calldataarg args;
-	f(e,args);
-	uint256 balanceAfterOp = scaledBalanceOf(user);
-	assert(balanceAfterOp <= balanceBeforeOp);
+    require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
+    requireInvariant discountCantExceed100Percent(user);
+    uint256 balanceBeforeOp = scaledBalanceOf(user);
+    env e = envAtTimestamp(ts2);
+    calldataarg args;
+    f(e,args);
+    uint256 balanceAfterOp = scaledBalanceOf(user);
+    assert(balanceAfterOp <= balanceBeforeOp);
 }
 
 /**
@@ -168,19 +168,19 @@ rule nonMintFunctionCantIncreaseScaledBalance(method f) filtered { f-> f.selecto
 **/
 // pass
 rule debtTokenIsNotTransferable(method f) {
-	address user1;
-	address user2;
-	require(user1 != user2);
-	uint256 scaledBalanceBefore1 = scaledBalanceOf(user1);
-	uint256 scaledBalanceBefore2 = scaledBalanceOf(user2);
-	env e;
-	calldataarg args;
-	f(e,args);
-	uint256 scaledBalanceAfter1 = scaledBalanceOf(user1);
-	uint256 scaledBalanceAfter2 = scaledBalanceOf(user2);
+    address user1;
+    address user2;
+    require(user1 != user2);
+    uint256 scaledBalanceBefore1 = scaledBalanceOf(user1);
+    uint256 scaledBalanceBefore2 = scaledBalanceOf(user2);
+    env e;
+    calldataarg args;
+    f(e,args);
+    uint256 scaledBalanceAfter1 = scaledBalanceOf(user1);
+    uint256 scaledBalanceAfter2 = scaledBalanceOf(user2);
 
-	assert( scaledBalanceBefore1 + scaledBalanceBefore2 == scaledBalanceAfter1 + scaledBalanceAfter2 
-	=> (scaledBalanceBefore1 == scaledBalanceAfter1 && scaledBalanceBefore2 == scaledBalanceAfter2));
+    assert( scaledBalanceBefore1 + scaledBalanceBefore2 == scaledBalanceAfter1 + scaledBalanceAfter2 
+    => (scaledBalanceBefore1 == scaledBalanceAfter1 && scaledBalanceBefore2 == scaledBalanceAfter2));
 }
 
 /**
@@ -188,25 +188,25 @@ rule debtTokenIsNotTransferable(method f) {
 **/
 // pass
 rule onlyCertainFunctionsCanModifyScaledBalance(method f) {
-	address user;
-	uint256 ts1;
-	uint256 ts2;
-	require(ts2 >= ts1);
-	require((indexAtTimestamp(ts1) >= ray()) && 
-			(indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
+    address user;
+    uint256 ts1;
+    uint256 ts2;
+    require(ts2 >= ts1);
+    require((indexAtTimestamp(ts1) >= ray()) && 
+            (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
 
-	require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
-	requireInvariant discountCantExceed100Percent(user);
-	uint256 balanceBeforeOp = scaledBalanceOf(user);
-	env e = envAtTimestamp(ts2);
-	calldataarg args;
-	f(e,args);
-	uint256 balanceAfterOp = scaledBalanceOf(user);
-	assert(balanceAfterOp != balanceBeforeOp => (
-		(f.selector == sig:mint(address ,address ,uint256 ,uint256).selector) ||
-		(f.selector == sig:burn(address ,uint256 ,uint256).selector) ||
-		(f.selector == sig:updateDiscountDistribution(address ,address ,uint256 ,uint256 ,uint256).selector) ||
-		(f.selector == sig:rebalanceUserDiscountPercent(address).selector)));
+    require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
+    requireInvariant discountCantExceed100Percent(user);
+    uint256 balanceBeforeOp = scaledBalanceOf(user);
+    env e = envAtTimestamp(ts2);
+    calldataarg args;
+    f(e,args);
+    uint256 balanceAfterOp = scaledBalanceOf(user);
+    assert(balanceAfterOp != balanceBeforeOp => (
+        (f.selector == sig:mint(address ,address ,uint256 ,uint256).selector) ||
+        (f.selector == sig:burn(address ,uint256 ,uint256).selector) ||
+        (f.selector == sig:updateDiscountDistribution(address ,address ,uint256 ,uint256 ,uint256).selector) ||
+        (f.selector == sig:rebalanceUserDiscountPercent(address).selector)));
 }
 
 /**
@@ -214,21 +214,21 @@ rule onlyCertainFunctionsCanModifyScaledBalance(method f) {
 **/
 // pass
 rule userAccumulatedDebtInterestWontDecrease(method f) {
-	address user;
-	uint256 ts1;
-	uint256 ts2;
-	require(ts2 >= ts1);
-	require((indexAtTimestamp(ts1) >= ray()) && 
-			(indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
+    address user;
+    uint256 ts1;
+    uint256 ts2;
+    require(ts2 >= ts1);
+    require((indexAtTimestamp(ts1) >= ray()) && 
+            (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
 
-	require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
-	requireInvariant discountCantExceed100Percent(user);
-	uint256 initAccumulatedInterest = getUserAccumulatedDebtInterest(user);
-	env e2 = envAtTimestamp(ts2);
-	calldataarg args;
-	f(e2,args);
-	uint256 finAccumulatedInterest = getUserAccumulatedDebtInterest(user);
-	assert(initAccumulatedInterest > finAccumulatedInterest => f.selector == sig:decreaseBalanceFromInterest(address, uint256).selector);
+    require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
+    requireInvariant discountCantExceed100Percent(user);
+    uint256 initAccumulatedInterest = getUserAccumulatedDebtInterest(user);
+    env e2 = envAtTimestamp(ts2);
+    calldataarg args;
+    f(e2,args);
+    uint256 finAccumulatedInterest = getUserAccumulatedDebtInterest(user);
+    assert(initAccumulatedInterest > finAccumulatedInterest => f.selector == sig:decreaseBalanceFromInterest(address, uint256).selector);
 }
 
 /**
@@ -239,14 +239,14 @@ rule userCantNullifyItsDebt(method f) {
     address user;
     env e;
     env e2;
-	require(getUserCurrentIndex(user) == indexAtTimestamp(e.block.timestamp));
-	requireInvariant discountCantExceed100Percent(user);
-	uint256 balanceBeforeOp = balanceOf(e, user);
-	calldataarg args;
+    require(getUserCurrentIndex(user) == indexAtTimestamp(e.block.timestamp));
+    requireInvariant discountCantExceed100Percent(user);
+    uint256 balanceBeforeOp = balanceOf(e, user);
+    calldataarg args;
     require e2.block.timestamp == e.block.timestamp;
-	f(e2,args);
-	uint256 balanceAfterOp = balanceOf(e, user);
-	assert((balanceBeforeOp > 0 && balanceAfterOp == 0) => (f.selector == sig:burn(address, uint256, uint256).selector));
+    f(e2,args);
+    uint256 balanceAfterOp = balanceOf(e, user);
+    assert((balanceBeforeOp > 0 && balanceAfterOp == 0) => (f.selector == sig:burn(address, uint256, uint256).selector));
 }
 
 /***************************************************************
@@ -257,29 +257,29 @@ rule userCantNullifyItsDebt(method f) {
 * @title proves that after calling mint, the user's discount rate is up to date
 **/
 rule integrityOfMint_updateDiscountRate() {
-	address user1;
-	address user2;
-	env e;
-	uint256 amount;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	mint(e, user1, user2, amount, index);
-	uint256 debtBalance = balanceOf(e, user2);
-	uint256 discountBalance = getBalanceOfDiscountToken(e, user2);
-	uint256 discountRate = getUserDiscountRate(user2);
-	assert(discStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
+    address user1;
+    address user2;
+    env e;
+    uint256 amount;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    mint(e, user1, user2, amount, index);
+    uint256 debtBalance = balanceOf(e, user2);
+    uint256 discountBalance = getBalanceOfDiscountToken(e, user2);
+    uint256 discountRate = getUserDiscountRate(user2);
+    assert(discStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
 }
 
 /**
 * @title proves the after calling mint, the user's state is updated with the recent index value
 **/
 rule integrityOfMint_updateIndex() {
-	address user1;
-	address user2;
-	env e;
-	uint256 amount;
-	uint256 index;
-	mint(e, user1, user2, amount, index);
-	assert(getUserCurrentIndex(user2) == index);
+    address user1;
+    address user2;
+    env e;
+    uint256 amount;
+    uint256 index;
+    mint(e, user1, user2, amount, index);
+    assert(getUserCurrentIndex(user2) == index);
 }
 
 /**
@@ -287,21 +287,21 @@ rule integrityOfMint_updateIndex() {
 **/
 // pass
 rule integrityOfMint_updateScaledBalance_fixedIndex() {
-	address user;
-	env e;
-	uint256 balanceBefore = balanceOf(e, user);
-	uint256 scaledBalanceBefore = scaledBalanceOf(user);
-	address caller;
-	uint256 amount;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	require(getUserCurrentIndex(user) == index);
-	mint(e, caller, user, amount, index);
+    address user;
+    env e;
+    uint256 balanceBefore = balanceOf(e, user);
+    uint256 scaledBalanceBefore = scaledBalanceOf(user);
+    address caller;
+    uint256 amount;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    require(getUserCurrentIndex(user) == index);
+    mint(e, caller, user, amount, index);
 
-	uint256 balanceAfter = balanceOf(e, user);
-	mathint scaledBalanceAfter = scaledBalanceOf(user);
-	mathint scaledAmount = rayDivCVL(amount, index);
+    uint256 balanceAfter = balanceOf(e, user);
+    mathint scaledBalanceAfter = scaledBalanceOf(user);
+    mathint scaledAmount = rayDivCVL(amount, index);
 
-	assert(scaledBalanceAfter == scaledBalanceBefore + scaledAmount);
+    assert(scaledBalanceAfter == scaledBalanceBefore + scaledAmount);
 }
 
 /**
@@ -309,32 +309,32 @@ rule integrityOfMint_updateScaledBalance_fixedIndex() {
 **/
 // pass
 rule integrityOfMint_userIsolation() {
-	address otherUser;
-	uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
-	env e;
-	uint256 amount;
-	uint256 index;
-	address targetUser;
-	address caller;
-	mint(e, caller, targetUser, amount, index);
-	uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
-	assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
+    address otherUser;
+    uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
+    env e;
+    uint256 amount;
+    uint256 index;
+    address targetUser;
+    address caller;
+    mint(e, caller, targetUser, amount, index);
+    uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
+    assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
 }
 
 /**
 * @title proves that when calling mint, the user's balance (as reported by GhoVariableDebtToken::balanceOf) will increase if the call is made on bahalf of the user.
 **/
 rule onlyMintForUserCanIncreaseUsersBalance() {
-	address user1;
+    address user1;
     env e;
-	require(getUserCurrentIndex(user1) == indexAtTimestamp(e.block.timestamp));
-	
-	uint256 finBalanceBeforeMint = balanceOf(e, user1);
-	uint256 amount;
-	mint(e,user1, user1, amount, indexAtTimestamp(e.block.timestamp));
-	uint256 finBalanceAfterMint = balanceOf(e, user1);
+    require(getUserCurrentIndex(user1) == indexAtTimestamp(e.block.timestamp));
+    
+    uint256 finBalanceBeforeMint = balanceOf(e, user1);
+    uint256 amount;
+    mint(e,user1, user1, amount, indexAtTimestamp(e.block.timestamp));
+    uint256 finBalanceAfterMint = balanceOf(e, user1);
 
-	assert(finBalanceAfterMint != finBalanceBeforeMint);
+    assert(finBalanceAfterMint != finBalanceBeforeMint);
 }
 
 
@@ -349,27 +349,27 @@ use rule integrityMint_atoken;
 * @title proves that after calling burn, the user's discount rate is up to date
 **/
 rule integrityOfBurn_updateDiscountRate() {
-	address user;
-	env e;
-	uint256 amount;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	burn(e, user, amount, index);
-	uint256 debtBalance = balanceOf(e, user);
-	uint256 discountBalance = getBalanceOfDiscountToken(e, user);
-	uint256 discountRate = getUserDiscountRate(user);
-	assert(discStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
+    address user;
+    env e;
+    uint256 amount;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    burn(e, user, amount, index);
+    uint256 debtBalance = balanceOf(e, user);
+    uint256 discountBalance = getBalanceOfDiscountToken(e, user);
+    uint256 discountRate = getUserDiscountRate(user);
+    assert(discStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
 }
 
 /**
 * @title proves the after calling burn, the user's state is updated with the recent index value
 **/
 rule integrityOfBurn_updateIndex() {
-	address user;
-	env e;
-	uint256 amount;
-	uint256 index;
-	burn(e, user, amount, index);
-	assert(getUserCurrentIndex(user) == index);
+    address user;
+    env e;
+    uint256 amount;
+    uint256 index;
+    burn(e, user, amount, index);
+    assert(getUserCurrentIndex(user) == index);
 }
 
 /**
@@ -381,18 +381,18 @@ use rule burnZeroDoesntChangeBalance;
 * @title proves a concrete case of repaying the full debt that ends with a zero balance
 **/
 rule integrityOfBurn_fullRepay_concrete() {
-	env e;
-	address user;
-	uint256 currentDebt = balanceOf(e, user);
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	// handle timeouts
-	require(getUserCurrentIndex(user) == ray());
-	require(to_mathint(index) == 2*ray());
-	require(to_mathint(scaledBalanceOf(user)) == 4*ray());
-	
-	burn(e, user, currentDebt, index);
-	uint256 scaled = scaledBalanceOf(user);
-	assert(scaled == 0);
+    env e;
+    address user;
+    uint256 currentDebt = balanceOf(e, user);
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    // handle timeouts
+    require(getUserCurrentIndex(user) == ray());
+    require(to_mathint(index) == 2*ray());
+    require(to_mathint(scaledBalanceOf(user)) == 4*ray());
+    
+    burn(e, user, currentDebt, index);
+    uint256 scaled = scaledBalanceOf(user);
+    assert(scaled == 0);
 }
 
 
@@ -401,15 +401,15 @@ rule integrityOfBurn_fullRepay_concrete() {
 **/
 // pass
 rule integrityOfBurn_userIsolation() {
-	address otherUser;
-	uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
-	env e;
-	uint256 amount;
-	uint256 index;
-	address targetUser;
-	burn(e,targetUser, amount, index);
-	uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
-	assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
+    address otherUser;
+    uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
+    env e;
+    uint256 amount;
+    uint256 index;
+    address targetUser;
+    burn(e,targetUser, amount, index);
+    uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
+    assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
 }
 
 
@@ -417,16 +417,16 @@ rule integrityOfBurn_userIsolation() {
 * @title proves the after calling updateDiscountDistribution, the user's state is updated with the recent index value
 **/
 rule integrityOfUpdateDiscountDistribution_updateIndex() {
-	address sender;
-	address recipient;
-	uint256 senderDiscountTokenBalance;
+    address sender;
+    address recipient;
+    uint256 senderDiscountTokenBalance;
     uint256 recipientDiscountTokenBalance;
-	env e;
-	uint256 amount;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	updateDiscountDistribution(e, sender, recipient, senderDiscountTokenBalance, recipientDiscountTokenBalance, amount);
-	assert(scaledBalanceOf(sender) > 0 => getUserCurrentIndex(sender) == index);
-	assert(scaledBalanceOf(recipient) > 0 => getUserCurrentIndex(recipient) == index);
+    env e;
+    uint256 amount;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    updateDiscountDistribution(e, sender, recipient, senderDiscountTokenBalance, recipientDiscountTokenBalance, amount);
+    assert(scaledBalanceOf(sender) > 0 => getUserCurrentIndex(sender) == index);
+    assert(scaledBalanceOf(recipient) > 0 => getUserCurrentIndex(recipient) == index);
 }
 
 
@@ -435,17 +435,17 @@ rule integrityOfUpdateDiscountDistribution_updateIndex() {
 **/
 // pass
 rule integrityOfUpdateDiscountDistribution_userIsolation() {
-	address otherUser;
-	uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
-	env e;
-	uint256 amount;
-	uint256 senderDiscountTokenBalance;
-	uint256 recipientDiscountTokenBalance;
-	address sender;
-	address recipient;
-	updateDiscountDistribution(e, sender, recipient, senderDiscountTokenBalance, recipientDiscountTokenBalance, amount);
-	uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
-	assert(scaledBalanceAfter != scaledBalanceBefore => (otherUser == sender || otherUser == recipient));
+    address otherUser;
+    uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
+    env e;
+    uint256 amount;
+    uint256 senderDiscountTokenBalance;
+    uint256 recipientDiscountTokenBalance;
+    address sender;
+    address recipient;
+    updateDiscountDistribution(e, sender, recipient, senderDiscountTokenBalance, recipientDiscountTokenBalance, amount);
+    uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
+    assert(scaledBalanceAfter != scaledBalanceBefore => (otherUser == sender || otherUser == recipient));
 }
 
 /***************************************************************
@@ -456,21 +456,21 @@ rule integrityOfUpdateDiscountDistribution_userIsolation() {
 * @title proves that after calling rebalanceUserDiscountPercent, the user's discount rate is up to date
 **/
 rule integrityOfRebalanceUserDiscountPercent_updateDiscountRate() {
-	address user;
-	env e;
-	rebalanceUserDiscountPercent(e, user);
-	assert(discStrategy.calculateDiscountRate(balanceOf(e, user), getBalanceOfDiscountToken(e, user)) == getUserDiscountRate(user));
+    address user;
+    env e;
+    rebalanceUserDiscountPercent(e, user);
+    assert(discStrategy.calculateDiscountRate(balanceOf(e, user), getBalanceOfDiscountToken(e, user)) == getUserDiscountRate(user));
 }
 
 /**
 * @title proves that after calling rebalanceUserDiscountPercent, the user's state is updated with the recent index value
 **/
 rule integrityOfRebalanceUserDiscountPercent_updateIndex() {
-	address user;
-	env e;
-	rebalanceUserDiscountPercent(e, user);
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	assert(getUserCurrentIndex(user) == index);
+    address user;
+    env e;
+    rebalanceUserDiscountPercent(e, user);
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    assert(getUserCurrentIndex(user) == index);
 }
 
 /**
@@ -478,13 +478,13 @@ rule integrityOfRebalanceUserDiscountPercent_updateIndex() {
 **/
 // pass
 rule integrityOfRebalanceUserDiscountPercent_userIsolation() {
-	address otherUser;
-	uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
-	env e;
-	address targetUser;
-	rebalanceUserDiscountPercent(e, targetUser);
-	uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
-	assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
+    address otherUser;
+    uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
+    env e;
+    address targetUser;
+    rebalanceUserDiscountPercent(e, targetUser);
+    uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
+    assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
 }
 
 /***************************************************************
@@ -495,44 +495,44 @@ rule integrityOfRebalanceUserDiscountPercent_userIsolation() {
 * @title proves that a user with 100% discounts has a fixed balance over time
 **/
 rule integrityOfBalanceOf_fullDiscount() {
-	address user;
-	uint256 fullDiscountRate = 10000; //100%
-	require(getUserDiscountRate(user) == fullDiscountRate);
-	env e1;
-	env e2;
-	uint256 index1 = indexAtTimestamp(e1.block.timestamp);
-	uint256 index2 = indexAtTimestamp(e2.block.timestamp);
-	assert(balanceOf(e1, user) == balanceOf(e2, user));
+    address user;
+    uint256 fullDiscountRate = 10000; //100%
+    require(getUserDiscountRate(user) == fullDiscountRate);
+    env e1;
+    env e2;
+    uint256 index1 = indexAtTimestamp(e1.block.timestamp);
+    uint256 index2 = indexAtTimestamp(e2.block.timestamp);
+    assert(balanceOf(e1, user) == balanceOf(e2, user));
 }
 
 /**
 * @title proves that a user's balance, with no discount, is equal to rayMul(scaledBalance, current index)
 **/
 rule integrityOfBalanceOf_noDiscount() {
-	address user;
-	require(getUserDiscountRate(user) == 0);
-	env e;
-	uint256 scaledBalance = scaledBalanceOf(user);
-	uint256 currentIndex = indexAtTimestamp(e.block.timestamp);
-	mathint expectedBalance = rayMulCVL(scaledBalance, currentIndex);
-	assert(to_mathint(balanceOf(e, user)) == expectedBalance);
+    address user;
+    require(getUserDiscountRate(user) == 0);
+    env e;
+    uint256 scaledBalance = scaledBalanceOf(user);
+    uint256 currentIndex = indexAtTimestamp(e.block.timestamp);
+    mathint expectedBalance = rayMulCVL(scaledBalance, currentIndex);
+    assert(to_mathint(balanceOf(e, user)) == expectedBalance);
 }
 
 /**
 * @title proves the a user with zero scaled balance has a zero balance
 **/
 rule integrityOfBalanceOf_zeroScaledBalance() {
-	address user;
-	env e;
-	uint256 scaledBalance = scaledBalanceOf(user);
-	require(scaledBalance == 0);
-	assert(balanceOf(e, user) == 0);
+    address user;
+    env e;
+    uint256 scaledBalance = scaledBalanceOf(user);
+    require(scaledBalance == 0);
+    assert(balanceOf(e, user) == 0);
 }
 
 rule burnAllDebtReturnsZeroDebt(address user) {
     env e;
-	uint256 _variableDebt = balanceOf(e, user);
-	burn(e, user, _variableDebt, indexAtTimestamp(e.block.timestamp));
-	uint256 variableDebt_ = balanceOf(e, user);
+    uint256 _variableDebt = balanceOf(e, user);
+    burn(e, user, _variableDebt, indexAtTimestamp(e.block.timestamp));
+    uint256 variableDebt_ = balanceOf(e, user);
     assert(variableDebt_ == 0);
 }

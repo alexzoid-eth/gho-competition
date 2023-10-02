@@ -1,502 +1,484 @@
-using GhoTokenHelper as GhoTokenHelper;
+import "./ghoTokenHelperMethods.spec";
+
+///////////////// METHODS //////////////////////
 
 methods{
-	function mint(address,uint256) external;
-	function burn(uint256) external;
-	function removeFacilitator(address) external;
-	function setFacilitatorBucketCapacity(address,uint128) external;
+    // GhoToken
+    function mint(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
+    function addFacilitator(address facilitatorAddress, string memory facilitatorLabel, 
+        uint128 bucketCapacity) external;
+    function removeFacilitator(address facilitatorAddress) external;
+    function setFacilitatorBucketCapacity(address facilitator, uint128 newCapacity) external;
+    function getFacilitator(address facilitator) external returns (IGhoToken.Facilitator) envfree;
+    function getFacilitatorBucket(address facilitator) external returns (uint256, uint256) envfree;
+    function getFacilitatorsList() external returns (address[]) envfree;
 
-	function totalSupply() external returns uint256 envfree;
-	function balanceOf(address) external returns (uint256) envfree;
-
-	// Helper getters
-	function GhoTokenHelper.getFacilitatorBucketLevel(address) external returns uint256 envfree;
-	function GhoTokenHelper.getFacilitatorBucketCapacity(address) external returns uint256 envfree;
-	function GhoTokenHelper.getFacilitatorsLabelLen(address facilitator) external  returns (uint256) envfree;
-	function GhoTokenHelper.toBytes32(address) external returns (bytes32) envfree;
+    // ERC20
+    function approve(address spender, uint256 amount) internal returns (bool);
+    function transfer(address to, uint256 amount) internal returns (bool);
+    function transferFrom(address from, address to, uint256 amount) internal returns (bool);
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, 
+        bytes32 r, bytes32 s) internal;
+    function DOMAIN_SEPARATOR() internal returns (bytes32);
+    function computeDomainSeparator() internal returns (bytes32);
+    function _mint(address to, uint256 amount) internal;
+    function _burn(address from, uint256 amount) internal;
+    function totalSupply() external returns uint256 envfree;
+    function balanceOf(address) external returns (uint256) envfree;
+    function nonces(address) external returns (uint256) envfree;
 }
 
-
-// GHOST COPIES:
-// For every storage variable we add a ghost field that is kept synchronized by hooks.
-// The ghost fields can be accessed by the spec, even inside quantifiers.
-
-// ghost field for the values array
-ghost mapping(mathint => bytes32) ghostValues {
-    init_state axiom forall mathint x. ghostValues[x] == to_bytes32(0);
-}
-// ghost field for the indexes map
-ghost mapping(bytes32 => uint256) ghostIndexes {
-    init_state axiom forall bytes32 x. ghostIndexes[x] == 0;
-}
-// ghost field for the length of the values array (stored in offset 0)
-ghost uint256 ghostLength {
-    // assumption: it's infeasible to grow the list to these many elements.
-    axiom ghostLength < max_uint256;
-}
-
-// HOOKS
-// Store hook to synchronize ghostLength with the length of the _facilitatorsList._inner._values array. 
-// We need to use (offset 0) here, as there is no keyword yet to access the length.
-hook Sstore currentContract._facilitatorsList.(offset 0) uint256 newLength STORAGE {
-    ghostLength = newLength;
-}
-// Store hook to synchronize ghostValues array with set._inner._values.
-hook Sstore currentContract._facilitatorsList._inner._values[INDEX uint256 index] bytes32 newValue STORAGE {
-    ghostValues[index] = newValue;
-}
-// Store hook to synchronize ghostIndexes array with set._inner._indexes.
-hook Sstore currentContract._facilitatorsList._inner._indexes[KEY bytes32 value] uint256 newIndex STORAGE {
-    ghostIndexes[value] = newIndex;
-}
-
-// The load hooks can use require to ensure that the ghost field has the same information as the storage.
-// The require is sound, since the store hooks ensure the contents are always the same.  However we cannot
-// prove that with invariants, since this would require the invariant to read the storage for all elements
-// and neither storage access nor function calls are allowed in quantifiers.
-//
-// By following this simple pattern it is ensured that the ghost state and the storage are always the same
-// and that the solver can use this knowledge in the proofs.
-
-// Load hook to synchronize ghostLength with the length of the set._inner._values array. 
-// Again we use (offset 0) here, as there is no keyword yet to access the length.
-hook Sload uint256 length currentContract._facilitatorsList.(offset 0) STORAGE {
-    require ghostLength == length;
-}
-hook Sload bytes32 value currentContract._facilitatorsList._inner._values[INDEX uint256 index] STORAGE {
-    require ghostValues[index] == value;
-}
-hook Sload uint256 index currentContract._facilitatorsList._inner._indexes[KEY bytes32 value] STORAGE {
-    require ghostIndexes[value] == index;
-}
-
-
-/********* Ghosts ***************/
-// Sum of all balances[a]
-ghost mathint sumAllBalance {
-    init_state axiom sumAllBalance == 0;
-}
-
-// Sum of facilitators' bucket levels 
-ghost mathint sumAllLevel {
-    init_state axiom sumAllLevel == 0;
-}
-
-// Indication if facilitator is in _facilitators mapping
-ghost mapping (address => bool) inFacilitatorsMapping  {
-    init_state axiom forall address f. !inFacilitatorsMapping[f];
-}
-
-
-hook Sstore balanceOf[KEY address a] uint256 balance (uint256 old_balance) STORAGE {
-   sumAllBalance = sumAllBalance + balance - old_balance;
-}
-
-hook Sload uint256 balance balanceOf[KEY address a] STORAGE {
-    require to_mathint(balance) <= sumAllBalance;
-} 
-
-
-/**
- * @title Sum of facilitators' bucket levels 
- * @dev Sample stores to  _facilitators[*].bucketLevel
- * @dev first field of struct Facilitator is uint128 so offset 16 is used  
- **/
-hook Sstore _facilitators[KEY address a].(offset 16) uint128 level (uint128 old_level)   STORAGE {
-   	sumAllLevel = sumAllLevel+ level - old_level;
-}
-
-hook Sstore _facilitators[KEY address a].(offset 32) uint256 string_length (uint256 old_length)   STORAGE {
-  if (string_length > 0) {
-	inFacilitatorsMapping[a] = true;
-  }
-  else {
-	inFacilitatorsMapping[a] = false;
-  }
-	
-}
-
-hook Sload  uint256 string_length _facilitators[KEY address a].(offset 32)    STORAGE {
-  if (string_length > 0) {
-	require inFacilitatorsMapping[a];
-  }
-  else {
-	require !inFacilitatorsMapping[a];
-  }
-	
-}
-
-//
-// Helper Functions
-//
-function toBytes32(address value) returns bytes32 {
-	return GhoTokenHelper.toBytes32(value);
-}
+///////////////// DEFINITIONS /////////////////////
 
 // Returns, whether a value is in the set.
 definition inFacilitatorsList(bytes32 value) returns bool = (ghostIndexes[value] != 0);
 
-//
-// Invariants
-//
+////////////////// FUNCTIONS //////////////////////
+
+function toBytes32(address value) returns bytes32 {
+    return GhoTokenHelper.toBytes32(value);
+}
+
+///////////////// GHOSTS & HOOKS //////////////////
 
 /**
-* @title AddressSet internal coherency
-* @dev A facilitator address exists in AddressSet list (GhoToken._facilitatorsList._values)
-* @dev if and only if it exists in AddressSet mapping (GhoToken._facilitatorsList._indexes)
-* @notice set_facilitatorList contains ghosts, hooks and invariant of the valid state of _facilitatorsList base on enumberableSet spec https://github.com/Certora/Examples/tree/master/CVLByExample/QuantifierExamples
-**/
-invariant facilitatorsList_setInvariant()
-    (forall uint256 index. index < ghostLength => to_mathint(ghostIndexes[ghostValues[index]]) == index + 1)
-    && (forall bytes32 value. ghostIndexes[value] == 0 || 
-         (ghostValues[ghostIndexes[value] - 1] == value && ghostIndexes[value] >= 1 && ghostIndexes[value] <= ghostLength));
-
-// INV #2
-/**
-* @title User's balance not greater than totalSupply()
-*/
-invariant inv_balanceOf_leq_totalSupply(address user)
-	balanceOf(user) <= totalSupply()
-	{
-		preserved {
-			requireInvariant sumAllBalance_eq_totalSupply();
-		}
-	}
-
-// INV #3
-/**
- * @title Sum of bucket levels is equals to GhoToken::totalSupply()
- **/
-invariant total_supply_eq_sumAllLevel()
-		sumAllLevel == to_mathint(totalSupply()) 
-	{
-	  preserved burn(uint256 amount) with (env e){
-			requireInvariant inv_balanceOf_leq_totalSupply(e.msg.sender);
-		}
-	}
-
-
-// INV #4
-/**
- * @title Sum of balances is GhoToke::totalSupply()
- **/
-invariant sumAllBalance_eq_totalSupply()
-	sumAllBalance == to_mathint(totalSupply());
-	
-
-// INV #5
-/**
- * @title The sum of bucket level is equal to the sum of GhoToken balances
- * @dev This invariant can be deduced from sumAllBalance_eq_totalSupply and total_supply_eq_sumAllLevel
- * @dev requireInvariant of EITHER sumAllBalance_eq_totalSupply() OR total_supply_eq_sumAllLevel() suffuces for the proof
- **/
-invariant sumAllLevel_eq_sumAllBalance()
-	sumAllLevel == sumAllBalance
-	  	{
-			preserved {
-			requireInvariant sumAllBalance_eq_totalSupply();
-		}
-	}
-
-
-
-// INV #6
-/**
-* @title A facilitator with a positive bucket capacity exists in the _facilitators mapping
-*/
-invariant inv_valid_capacity(address facilitator)
-	((GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)>0) => inFacilitatorsMapping[facilitator] );
-
-// INV #7
-/**
-* @title A facilitator with a positive bucket level exists in the _facilitators mapping
-*/
-invariant inv_valid_level(address facilitator)
-	((GhoTokenHelper.getFacilitatorBucketLevel(facilitator)>0) => inFacilitatorsMapping[facilitator] )
-	{
-		preserved{
-			requireInvariant inv_valid_capacity(facilitator);
-		}
-	}
-
-// INV #9
-/**
-* @title GhoToken mapping-AddressSet coherency (1)
-* @dev A facilitator address that exists in GhoToken Facilitator mapping (GhoToken._facilitators)
-* @dev if and only if it exists in GhoToken  AddressSet (GhoToken._facilitatorsList._indexes)
+* Ghost copy of `mapping(address => Facilitator) _facilitators`
+*  .offset 0 - bucketCapacity
+*  .offset 16 - bucketLevels
+*  .offset 32 - label
 */
 
-invariant addr_in_set_iff_in_map(address facilitator)
-	inFacilitatorsMapping[facilitator] <=> inFacilitatorsList(toBytes32(facilitator))
-	{
-		preserved {
- 		requireInvariant facilitatorsList_setInvariant();
-		}
-	}
+ghost mapping (address => uint128) ghostBucketCapacity {
+    init_state axiom forall address i. ghostBucketCapacity[i] == 0;
+}
 
-// INV #10
+ghost mapping (address => uint128) ghostBucketLevels {
+    init_state axiom forall address i. ghostBucketLevels[i] == 0;
+}
+
+ghost mapping (address => bool) ghostInFacilitatorsMapping  {
+    init_state axiom forall address i. ghostInFacilitatorsMapping[i] == false;
+}
+
+ghost mathint ghostSumAllLevel {
+    init_state axiom ghostSumAllLevel == 0;
+}
+
+hook Sload uint128 capacity _facilitators[KEY address a].(offset 0) STORAGE {
+    require(ghostBucketCapacity[a] == capacity);
+}
+
+hook Sstore _facilitators[KEY address a].(offset 0) uint128 capacity STORAGE {
+    ghostBucketCapacity[a] = capacity;
+}
+
+hook Sload uint128 level _facilitators[KEY address a].(offset 16) STORAGE {
+    require(ghostBucketLevels[a] == level);
+}
+
+hook Sstore _facilitators[KEY address a].(offset 16) uint128 level (uint128 oldLevel) STORAGE {
+    ghostBucketLevels[a] = level;
+    ghostSumAllLevel = ghostSumAllLevel + level - oldLevel;
+}
+
+hook Sload uint256 stringLength _facilitators[KEY address a].(offset 32) STORAGE {
+    if (stringLength > 0) {
+        require(ghostInFacilitatorsMapping[a] == true);
+    } else {
+        require(ghostInFacilitatorsMapping[a] == false);
+    }
+}
+
+hook Sstore _facilitators[KEY address a].(offset 32) uint256 stringLength STORAGE {
+    if (stringLength > 0) {
+        ghostInFacilitatorsMapping[a] = true;
+    } else {
+        ghostInFacilitatorsMapping[a] = false;
+    }
+}
+
 /**
-* @title validity of a facilitator struct
-* @dev A facilitator address that exists in GhoToken Facilitator mapping (GhoToken._facilitators)
-* @dev if and only if it had a non empty label 
-*/	
+* Ghost copy of `EnumerableSet.AddressSet _facilitatorsList`
+*/
 
-invariant valid_facilitatorLabel(address facilitator) 
-	inFacilitatorsMapping[facilitator] <=> GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0 
-	{
-		preserved {
-			requireInvariant facilitatorsList_setInvariant();
-			requireInvariant addr_in_set_iff_in_map(facilitator);
-		}
-	}
+ghost uint256 ghostFacilitatorsListLength {
+    // assumption: it's infeasible to grow the list to these many elements.
+    axiom ghostFacilitatorsListLength < max_uint64;
+}
 
+ghost mapping(mathint => bytes32) ghostValues {
+    init_state axiom forall mathint x. ghostValues[x] == to_bytes32(0);
+}
 
-//
-// Rules
-//
+ghost mapping(bytes32 => uint256) ghostIndexes {
+    init_state axiom forall bytes32 x. ghostIndexes[x] == 0;
+}
+
+hook Sload uint256 length currentContract._facilitatorsList.(offset 0) STORAGE {
+    require(ghostFacilitatorsListLength == length);
+}
+
+hook Sstore currentContract._facilitatorsList.(offset 0) uint256 newLength STORAGE {
+    ghostFacilitatorsListLength = newLength;
+}
+
+hook Sload bytes32 val currentContract._facilitatorsList._inner._values[INDEX uint256 i] STORAGE {
+    require(ghostValues[i] == val);
+}
+
+hook Sstore currentContract._facilitatorsList._inner._values[INDEX uint256 i] bytes32 val STORAGE {
+    ghostValues[i] = val;
+}
+
+hook Sload uint256 i currentContract._facilitatorsList._inner._indexes[KEY bytes32 val] STORAGE {
+    require(ghostIndexes[val] == i);
+}
+
+hook Sstore currentContract._facilitatorsList._inner._indexes[KEY bytes32 val] uint256 i STORAGE {
+    ghostIndexes[val] = i;
+}
+
+/**
+* Sum of all balances
+*/
+
+ghost mapping (address => uint256) ghostBalanceOfMapping {
+    init_state axiom forall address i. ghostBalanceOfMapping[i] == 0;
+}
+
+ghost mathint sumAllBalance {
+    init_state axiom sumAllBalance == 0;
+}
+
+hook Sload uint256 balance balanceOf[KEY address a] STORAGE {
+    require(ghostBalanceOfMapping[a] == balance);
+    require(to_mathint(balance) <= sumAllBalance);
+} 
+
+hook Sstore balanceOf[KEY address a] uint256 balance (uint256 old_balance) STORAGE {
+    ghostBalanceOfMapping[a] = balance;
+   sumAllBalance = sumAllBalance + balance - old_balance;
+}
+
+///////////////// ASSUME INVARIANTS ////////////////
+
+// AddressSet internal coherency
+invariant facilitatorsListSetup()
+    (forall uint256 i. i < ghostFacilitatorsListLength => to_mathint(ghostIndexes[ghostValues[i]]) == i + 1)
+    && (forall bytes32 val. ghostIndexes[val] == 0 
+        || (
+            ghostValues[ghostIndexes[val] - 1] == val 
+            && ghostIndexes[val] >= 1 && ghostIndexes[val] <= ghostFacilitatorsListLength
+        )
+    );
+
+// GhoToken mapping-AddressSet coherency
+invariant addrInSetIfInMap(address facilitator)
+    ghostInFacilitatorsMapping[facilitator] <=> inFacilitatorsList(toBytes32(facilitator)) {
+        preserved {
+            requireInvariant facilitatorsListSetup();
+        }
+    }
+
+// Validity of a facilitator struct
+invariant validFacilitatorLabel(address facilitator) 
+    ghostInFacilitatorsMapping[facilitator] <=> GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0 {
+        preserved {
+            requireInvariant facilitatorsListSetup();
+            requireInvariant addrInSetIfInMap(facilitator);
+        }
+    }
 
 function assumeInvariants(address facilitator) {
-	requireInvariant facilitatorsList_setInvariant();
-	requireInvariant addr_in_set_iff_in_map(facilitator);
-	requireInvariant valid_facilitatorLabel(facilitator);
+    requireInvariant facilitatorsListSetup();
+    requireInvariant addrInSetIfInMap(facilitator);
+    requireInvariant validFacilitatorLabel(facilitator);
+}
+
+///////////////// PROPERTIES //////////////////////
+
+// Sum of balances is totalSupply()
+invariant sumAllBalanceEqTotalSupply() 
+    sumAllBalance == to_mathint(totalSupply());
+
+// User's balance not greater than totalSupply()
+invariant balanceOfLeqTotalSupply(address user) 
+    balanceOf(user) <= totalSupply() {
+        preserved {
+            requireInvariant sumAllBalanceEqTotalSupply();
+        }
+    }
+
+// Sum of bucket levels is equals to totalSupply()
+invariant totalSupplyEqGhostSumAllLevel() 
+    ghostSumAllLevel == to_mathint(totalSupply()) {
+        preserved burn(uint256 amount) with (env e){
+            requireInvariant balanceOfLeqTotalSupply(e.msg.sender);
+        }
+    }
+
+// The sum of bucket level is equal to the sum of GhoToken balances
+invariant sumAllLevelEqSumAllBalance() 
+    ghostSumAllLevel == sumAllBalance {
+        preserved {
+            requireInvariant sumAllBalanceEqTotalSupply();
+        }
+    }
+
+// A facilitator with a positive bucket capacity exists in the _facilitators mapping
+invariant validCapacity(address facilitator)
+    ((GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) > 0) 
+        => ghostInFacilitatorsMapping[facilitator]);
+
+// A facilitator with a positive bucket level exists in the _facilitators mapping
+invariant validLevel(address facilitator) 
+    ((GhoTokenHelper.getFacilitatorBucketLevel(facilitator) > 0) 
+        => ghostInFacilitatorsMapping[facilitator]) {
+        preserved{
+            requireInvariant validCapacity(facilitator);
+        }
+    }
+
+// Bucket level <= bucket capacity unless setFacilitatorBucketCapacity() lowered it
+rule levelLeqCapacity(address facilitator, method f) filtered { f -> !f.isView } {
+    env e;
+    calldataarg arg;
+
+    assumeInvariants(facilitator);
+    requireInvariant validCapacity(facilitator);
+    require(GhoTokenHelper.getFacilitatorBucketLevel(facilitator) 
+        <= GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)); 
+    
+    f(e, arg);
+
+    assert((f.selector != sig:setFacilitatorBucketCapacity(address,uint128).selector)
+        => (GhoTokenHelper.getFacilitatorBucketLevel(facilitator) 
+            <= GhoTokenHelper.getFacilitatorBucketCapacity(facilitator))
+    );
 }
 
 /**
-* @title Bucket level <= bucket capacity unless setFacilitatorBucketCapacity() lowered it
+* If Bucket level < bucket capacity then the first invocation of mint() succeeds after burn
+*   unless setFacilitatorBucketCapacity() lowered bucket capacity or removeFacilitator() was called
 */
-rule level_leq_capacity(address facilitator, method f) filtered {f -> !f.isView}{
+rule mintAfterBurn(method f) filtered { f -> !f.isView } {
+    env e;
+    calldataarg arg;
+    uint256 amount_burn;
+    uint256 amount_mint;
+    address account;
 
-	env e;
-	calldataarg arg;
-	assumeInvariants(facilitator);
-	requireInvariant inv_valid_capacity(facilitator);
-	require GhoTokenHelper.getFacilitatorBucketLevel(facilitator) <= GhoTokenHelper.getFacilitatorBucketCapacity(facilitator); 
-	f(e, arg);
-	assert ((f.selector != sig:setFacilitatorBucketCapacity(address,uint128).selector)
-		=>	(GhoTokenHelper.getFacilitatorBucketLevel(facilitator) <= GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)));
-		
+    assumeInvariants(e.msg.sender);
+    require(GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender) 
+        <= GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender));
+    require(amount_mint > 0);
+    requireInvariant balanceOfLeqTotalSupply(e.msg.sender);
+    requireInvariant validCapacity(e.msg.sender);
+
+    burn(e, amount_burn);
+    f(e, arg);
+    mint@withrevert(e, account, amount_mint);
+
+    assert(((amount_mint <= amount_burn)
+            && f.selector != sig:mint(address,uint256).selector
+            && f.selector != sig:setFacilitatorBucketCapacity(address,uint128).selector
+            && f.selector != sig:removeFacilitator(address).selector
+            ) => !lastReverted), "mint failed";
 }
 
 /**
-* @notice If Bucket level < bucket capacity then the first invocation of mint() succeeds after burn
-* @notice unless setFacilitatorBucketCapacity() lowered bucket capacity or removeFacilitator() was called
+* Burn after mint succeeds. BorrowLogic::executeRepa() executes the following code before 
+* invocation of handleRepayment() 
 */
-rule mint_after_burn(method f) filtered {f -> !f.isView}
-{
-	env e;
-	calldataarg arg;
-	uint256 amount_burn;
-	uint256 amount_mint;
-	address account;
-	
-	assumeInvariants(e.msg.sender);
-	require GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender) <= GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender);
-	require amount_mint > 0;
+rule burnAfterMint(method f) filtered { f -> !f.isView } {
+    env e;
+    uint256 amount;
+    address account;
 
-	requireInvariant inv_balanceOf_leq_totalSupply(e.msg.sender);
-	requireInvariant inv_valid_capacity(e.msg.sender);
+    requireInvariant balanceOfLeqTotalSupply(e.msg.sender);
+    
+    mint(e, account, amount);
+    transferFrom(e, account, e.msg.sender, amount);
+    burn@withrevert(e, amount);
 
-	burn(e, amount_burn);
-	f(e, arg);
-	mint@withrevert(e, account, amount_mint);
-	assert (((amount_mint <= amount_burn)
-			&& f.selector != sig:mint(address,uint256).selector
-			&& f.selector != sig:setFacilitatorBucketCapacity(address,uint128).selector
-			&& f.selector != sig:removeFacilitator(address).selector
-			)	=> !lastReverted), "mint failed";
+    assert(!lastReverted, "burn failed");
+}
+
+// BucketLevel remains unchanged after mint() followed by burn()
+rule levelUnchangedAfterMintFollowedByBurn() {
+    env e;
+    calldataarg arg;
+    uint256 amount;
+    address account;
+
+    uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+
+    mint(e, account, amount);
+    burn(e, amount);
+    
+    uint256 levelAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    
+    assert(levelBefore == levelAfter);
+}
+
+rule levelAfterMint() {
+    env e;
+    calldataarg arg;
+    uint256 amount;
+    address account;
+
+    uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+
+    mint(e, account, amount);
+
+    uint256 levelAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+
+    assert(levelBefore + amount == to_mathint(levelAfter));
+
+}
+
+rule levelAfterBurn() {
+    env e;
+    calldataarg arg;
+    uint256 amount;
+
+    uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+
+    burn(e, amount);
+    
+    uint256 levelAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    
+    assert(to_mathint(levelBefore) == levelAfter + amount);
+}
+
+// Facilitator is valid after successful call to setFacilitatorBucketCapacity()
+rule facilitatorInListAfterSetFacilitatorBucketCapacity() {
+    env e;
+    address facilitator;
+    uint128 newCapacity;
+
+    assumeInvariants(facilitator);
+
+    setFacilitatorBucketCapacity(e, facilitator, newCapacity);
+    
+    assert(inFacilitatorsList(toBytes32(facilitator)));
 }
 
 /**
-* @title Burn after mint succeeds
-* @dev BorrowLogic::executeRepa() executes the following code before invocation of handleRepayment()
-* @dev safeTransferFrom(msg.sender, reserveCache.aTokenAddress, paybackAmount);
+* GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() 
+* return the assign bucket capacity 
 */
-rule burn_after_mint(method f) filtered {f -> !f.isView}
-{
-	env e;
-	uint256 amount;
-	address account;
+rule getFacilitatorBucketCapacity_after_setFacilitatorBucketCapacity() {
+    env e;
+    address facilitator;
+    uint128 newCapacity;
 
-	requireInvariant inv_balanceOf_leq_totalSupply(e.msg.sender);
-	
-	mint(e, account, amount);
-	transferFrom(e, account, e.msg.sender, amount);
-	burn@withrevert(e, amount);
-	assert !lastReverted, "burn failed";
+    setFacilitatorBucketCapacity(e, facilitator, newCapacity);
 
+    assert(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) == require_uint256(newCapacity));
 }
 
-/**
-* @title BucketLevel remains unchanged after mint() followed by burn()
-*/
-rule level_unchanged_after_mint_followed_by_burn()
-{
-	env e;
-	calldataarg arg;
-	uint256 amount;
-	address account;
+// Facilitator is valid after successful call to addFacilitator()
+rule facilitatorInListAfterAddFacilitator() {
+    env e;
+    address facilitator;
+    string label;
+    uint128 capacity;
 
-	uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
-	mint(e, account, amount);
-	burn(e, amount);
-	uint256 leveAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
-	assert levelBefore == leveAfter;
+    assumeInvariants(facilitator);
 
+    addFacilitator(e, facilitator, label, capacity);
+
+    assert(inFacilitatorsList(toBytes32(facilitator)));
 }
 
-rule level_after_mint()
-{
-	env e;
-	calldataarg arg;
-	uint256 amount;
-	address account;
+// Facilitator is valid after successful call to mint() or burn()
+rule facilitatorInListAfterMintAndBurn(method f) {
+    env e;
+    calldataarg args;
 
-	uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
-	mint(e, account, amount);
-	uint256 leveAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
-	assert levelBefore + amount == to_mathint(leveAfter);
+    requireInvariant validCapacity(e.msg.sender);
+    requireInvariant validLevel(e.msg.sender);
+    assumeInvariants(e.msg.sender);
 
+    f(e,args);
+
+    assert(((f.selector == sig:mint(address,uint256).selector) || (f.selector == sig:burn(uint256).selector)) 
+        => inFacilitatorsList(toBytes32(e.msg.sender))
+    );
 }
 
-rule level_after_burn()
-{
-	env e;
-	calldataarg arg;
-	uint256 amount;
+// Facilitator address is removed from list  (GhoToken._facilitatorsList._values) after calling removeFacilitator()
+rule addressNotInListAfterRemoveFacilitator(address facilitator) {
+    env e;
 
-	uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
-	burn(e, amount);
-	uint256 leveAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
-	assert to_mathint(levelBefore) == leveAfter + amount;
-
+    assumeInvariants(facilitator);
+    
+    bool before = inFacilitatorsList(toBytes32(facilitator));
+    removeFacilitator(e, facilitator);
+    
+    assert(before && !inFacilitatorsList(toBytes32(facilitator)));
 }
 
+rule balanceAfterMint() {
+    env e;
+    address user;
+    uint256 initBalance = balanceOf(user);
+    uint256 initSupply = totalSupply();
+    uint256 amount;
 
-/**
-* @title Facilitator is valid after successful call to setFacilitatorBucketCapacity()
-*/
-rule facilitator_in_list_after_setFacilitatorBucketCapacity(){
+    requireInvariant sumAllBalanceEqTotalSupply();
 
-	env e;
-	address facilitator;
-	uint128 newCapacity;
-
-	assumeInvariants(facilitator);
-
-	setFacilitatorBucketCapacity(e, facilitator, newCapacity);
-	
-	assert inFacilitatorsList(toBytes32(facilitator));
+    mint(e, user, amount);
+    
+    uint256 finBalance = balanceOf(user);
+    uint256 finSupply = totalSupply();
+    
+    assert(initBalance + amount == to_mathint(finBalance));
+    assert(initSupply + amount == to_mathint(finSupply));
 }
 
-/**
-* @title GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() retrun the assign bucket capacity
-*/
-rule getFacilitatorBucketCapacity_after_setFacilitatorBucketCapacity(){
+rule balanceAfterBurn() {
+    env e;
+    requireInvariant balanceOfLeqTotalSupply(e.msg.sender);
 
-	env e;
-	address facilitator;
-	uint128 newCapacity;
-
-	setFacilitatorBucketCapacity(e, facilitator, newCapacity);
-	assert GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) == require_uint256(newCapacity);
+    uint256 initBalance = balanceOf(e.msg.sender);
+    uint256 initSupply = totalSupply();
+    uint256 amount;
+    burn(e, amount);
+    uint256 finBalance = balanceOf(e.msg.sender);
+    uint256 finSupply = totalSupply();
+    
+    assert(to_mathint(initBalance) == finBalance + amount);
+    assert(to_mathint(initSupply) == finSupply + amount);
 }
 
-/**
-* @title Facilitator is valid after successful call to addFacilitator()
-*/
-rule facilitator_in_list_after_addFacilitator(){
-
-	env e;
-	address facilitator;
-	string label;
-	uint128 capacity;
-
-	assumeInvariants(facilitator);
-
-	addFacilitator(e, facilitator, label, capacity);
-
-	assert inFacilitatorsList(toBytes32(facilitator));
-}
-
-/**
-* @title Facilitator is valid after successful call to mint() or burn()
-*/
-rule facilitator_in_list_after_mint_and_burn(method f){
-
-	env e;
-	calldataarg args;
-	requireInvariant inv_valid_capacity(e.msg.sender);
-	requireInvariant inv_valid_level(e.msg.sender);
-	assumeInvariants(e.msg.sender);
-
-	f(e,args);
-	assert (((f.selector == sig:mint(address,uint256).selector) || (f.selector == sig:burn(uint256).selector)) => inFacilitatorsList(toBytes32(e.msg.sender)));
-}
-
-/**
-* @title Facilitator address is removed from list  (GhoToken._facilitatorsList._values) after calling removeFacilitator()
-**/
-rule address_not_in_list_after_removeFacilitator(address facilitator){
-	env e;
-	assumeInvariants(facilitator);
-	bool before =  inFacilitatorsList(toBytes32(facilitator));
-	removeFacilitator(e, facilitator);
-	assert before && !inFacilitatorsList(toBytes32(facilitator));
-}
-
-
-rule balance_after_mint() {
-	
-	env e;
-	address user;
-	uint256 initBalance = balanceOf(user);
-	uint256 initSupply = totalSupply();
-	uint256 amount;
-	requireInvariant sumAllBalance_eq_totalSupply();
-	mint(e, user, amount);
-	uint256 finBalance = balanceOf(user);
-	uint256 finSupply = totalSupply();
-	assert initBalance + amount == to_mathint(finBalance);
-	assert initSupply + amount == to_mathint(finSupply);
-}
-
-rule balance_after_burn() {
-	
-	env e;
-	requireInvariant inv_balanceOf_leq_totalSupply(e.msg.sender);
-	uint256 initBalance = balanceOf(e.msg.sender);
-	uint256 initSupply = totalSupply();
-	uint256 amount;
-	burn(e, amount);
-	uint256 finBalance = balanceOf(e.msg.sender);
-	uint256 finSupply = totalSupply();
-	assert to_mathint(initBalance) == finBalance + amount;
-	assert to_mathint(initSupply) == finSupply + amount ;
-}
-
-
-/**
-* @title Proves that you can't mint more than the facilitator's remaining capacity
-**/
+// Proves that you can't mint more than the facilitator's remaining capacity
 rule mintLimitedByFacilitatorRemainingCapacity() {
-	env e;
+    env e;
+    uint256 amount;
 
-	uint256 amount;
-	require(to_mathint(amount) > (GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) - GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender)));
-	address user;
-	mint@withrevert(e, user, amount);
-	assert lastReverted;
+    mathint diff = GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) 
+        - GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    require(to_mathint(amount) > diff);
+    
+    address user;
+    mint@withrevert(e, user, amount);
+    
+    assert(lastReverted);
 }
 
-/**
-* @title Proves that you can't burn more than the facilitator's current level
-**/
+// Proves that you can't burn more than the facilitator's current level
 rule burnLimitedByFacilitatorLevel() {
-	env e;
-	require(GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) > GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
+    env e;
 
-	uint256 amount;
-	require(amount > GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
-	burn@withrevert(e, amount);
-	assert lastReverted;
+    require(GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) 
+        > GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
+
+    uint256 amount;
+    require(amount > GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
+    burn@withrevert(e, amount);
+    
+    assert(lastReverted);
 }

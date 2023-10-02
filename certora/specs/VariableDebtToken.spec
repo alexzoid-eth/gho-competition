@@ -1,6 +1,6 @@
 methods {
     function _.handleAction(address, uint256, uint256) external => NONDET;
-	function scaledBalanceOfToBalanceOf(uint256) external returns (uint256) envfree;
+    function scaledBalanceOfToBalanceOf(uint256) external returns (uint256) envfree;
     //balanceOf(address) returns (uint256) envfree
 }
 
@@ -69,18 +69,18 @@ Each operation of Variable Debt Token can change at most one user's balance.
 rule balanceOfChange(address a, address b, method f) 
     filtered { f ->  !f.isView && !disAllowedFunctions(f) }
 {
-	env e;
-	require a != b;
-	uint256 balanceABefore = balanceOf(e, a);
-	uint256 balanceBBefore = balanceOf(e, b);
-	 
-	calldataarg arg;
+    env e;
+    require a != b;
+    uint256 balanceABefore = balanceOf(e, a);
+    uint256 balanceBBefore = balanceOf(e, b);
+     
+    calldataarg arg;
     f(e, arg); 
 
-	uint256 balanceAAfter = balanceOf(e, a);
-	uint256 balanceBAfter = balanceOf(e, b);
-	
-	assert (balanceABefore == balanceAAfter || balanceBBefore == balanceBAfter);
+    uint256 balanceAAfter = balanceOf(e, a);
+    uint256 balanceBAfter = balanceOf(e, b);
+    
+    assert (balanceABefore == balanceAAfter || balanceBBefore == balanceBAfter);
 }
 
 /*
@@ -89,22 +89,22 @@ Each operation of Variable Debt Token can change at most two user's balance.
 rule balanceOfAtMost3Change(address a, address b, address c, method f) 
     filtered { f ->  !f.isView && !disAllowedFunctions(f) }
 {
-	env e;
-	require a != b;
-	require a != c;
-	require b != c;
-	uint256 balanceABefore = balanceOf(e, a);
-	uint256 balanceBBefore = balanceOf(e, b);
-	uint256 balanceCBefore = balanceOf(e, c);
-	 
-	calldataarg arg;
+    env e;
+    require a != b;
+    require a != c;
+    require b != c;
+    uint256 balanceABefore = balanceOf(e, a);
+    uint256 balanceBBefore = balanceOf(e, b);
+    uint256 balanceCBefore = balanceOf(e, c);
+     
+    calldataarg arg;
     f(e, arg); 
 
-	uint256 balanceAAfter = balanceOf(e, a);
-	uint256 balanceBAfter = balanceOf(e, b);
-	uint256 balanceCAfter = balanceOf(e, c);
-	
-	assert !(balanceABefore != balanceAAfter && balanceBBefore != balanceBAfter && balanceCBefore != balanceCAfter);
+    uint256 balanceAAfter = balanceOf(e, a);
+    uint256 balanceBAfter = balanceOf(e, b);
+    uint256 balanceCAfter = balanceOf(e, c);
+    
+    assert !(balanceABefore != balanceAAfter && balanceBBefore != balanceBAfter && balanceCBefore != balanceCAfter);
 }
 
 
@@ -123,13 +123,13 @@ rule nonceChangePermits(method f)
 
 // minting and then buring Variable Debt Token should have no effect on the users balance
 rule inverseMintBurn(address a, address delegatedUser, uint256 amount, uint256 index) {
-	env e;
-	uint256 balancebefore = balanceOf(e, a);
-	requireInvariant discountCantExceed100Percent(a);
-	mint(e, delegatedUser, a, amount, index);
-	burn(e, a, amount, index);
-	uint256 balanceAfter = balanceOf(e, a);
-	assert balancebefore == balanceAfter, "burn is not the inverse of mint";
+    env e;
+    uint256 balancebefore = balanceOf(e, a);
+    requireInvariant discountCantExceed100Percent(a);
+    mint(e, delegatedUser, a, amount, index);
+    burn(e, a, amount, index);
+    uint256 balanceAfter = balanceOf(e, a);
+    assert balancebefore == balanceAfter, "burn is not the inverse of mint";
 }
 
 rule integrityDelegationWithSig(address delegator, address delegatee, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) {
@@ -144,44 +144,44 @@ Burning user u amount of amount tokens, decreases his balanceOf the user by amou
 (balance is decreased by amount and not scaled amount because of the summarization to one ray)
 */
 rule integrityOfBurn(address u, uint256 amount) {
-	env e;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	uint256 balanceBeforeUser = balanceOf(e, u);
-	uint256 totalSupplyBefore = totalSupply(); 
+    env e;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 balanceBeforeUser = balanceOf(e, u);
+    uint256 totalSupplyBefore = totalSupply(); 
 
-	burn(e, u, amount, index);
-	
-	uint256 balanceAfterUser = balanceOf(e, u);
-	uint256 totalSupplyAfter = totalSupply();
+    burn(e, u, amount, index);
+    
+    uint256 balanceAfterUser = balanceOf(e, u);
+    uint256 totalSupplyAfter = totalSupply();
 
     assert bounded_error_eq(totalSupplyAfter, totalSupplyBefore - amount, 1, index), "total supply integrity"; // total supply reduced
     assert bounded_error_eq(balanceAfterUser, balanceBeforeUser - amount, 1, index), "integrity break";  // user burns ATokens to receive underlying
 }
 
 rule integrityOfBurn_exact_supply_should_fail(address u, uint256 amount) {
-	env e;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	uint256 balanceBeforeUser = balanceOf(e, u);
-	uint256 totalSupplyBefore = totalSupply(); 
+    env e;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 balanceBeforeUser = balanceOf(e, u);
+    uint256 totalSupplyBefore = totalSupply(); 
 
-	burn(e, u, amount, index);
-	
-	uint256 balanceAfterUser = balanceOf(e, u);
-	uint256 totalSupplyAfter = totalSupply();
+    burn(e, u, amount, index);
+    
+    uint256 balanceAfterUser = balanceOf(e, u);
+    uint256 totalSupplyAfter = totalSupply();
 
     assert totalSupplyAfter == totalSupplyBefore - amount, "total supply integrity"; // total supply reduced
 }
 
 rule integrityOfBurn_exact_balance_should_fail(address u, uint256 amount) {
-	env e;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	uint256 balanceBeforeUser = balanceOf(e, u);
-	uint256 totalSupplyBefore = totalSupply(); 
+    env e;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 balanceBeforeUser = balanceOf(e, u);
+    uint256 totalSupplyBefore = totalSupply(); 
 
-	burn(e, u, amount, index);
-	
-	uint256 balanceAfterUser = balanceOf(e, u);
-	uint256 totalSupplyAfter = totalSupply();
+    burn(e, u, amount, index);
+    
+    uint256 balanceAfterUser = balanceOf(e, u);
+    uint256 totalSupplyAfter = totalSupply();
 
     assert totalSupplyAfter == totalSupplyBefore - amount, "total supply integrity"; // total supply reduced
 }
@@ -191,38 +191,38 @@ Burn is additive, can performed either all at once or gradually
 burn(from,to,x,index); burn(from,to,y,index) ~ burn(from,to,x+y,index) at the same initial state
 */
 rule additiveBurn(address user1, address user2, uint256 x, uint256 y) {
-	env e;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
+    env e;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
     require (user1 != user2  && balanceOf(e, user1) == balanceOf(e, user2));
-	require user1 != currentContract && user2 != currentContract;
+    require user1 != currentContract && user2 != currentContract;
 
     burn(e, user1, x, index);
-	burn(e, user1, y, index);
-	uint256 balanceScenario1 = balanceOf(e, user1);
+    burn(e, user1, y, index);
+    uint256 balanceScenario1 = balanceOf(e, user1);
 
-	burn(e, user2, x+y, index);
-	uint256 balanceScenario2 = balanceOf(e, user2);
+    burn(e, user2, x+y, index);
+    uint256 balanceScenario2 = balanceOf(e, user2);
 
     assert bounded_error_eq(balanceScenario1, balanceScenario2, 3, index), "burn is not additive";
-	// assert balanceScenario1 == balanceScenario2, "burn is not additive";
+    // assert balanceScenario1 == balanceScenario2, "burn is not additive";
 }
 
 // using too tight bound
 rule additiveBurn_should_fail(address user1, address user2, uint256 x, uint256 y) {
-	env e;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
+    env e;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
     require (user1 != user2  && balanceOf(e, user1) == balanceOf(e, user2));
-	require user1 != currentContract && user2 != currentContract;
+    require user1 != currentContract && user2 != currentContract;
 
     burn(e, user1, x, index);
-	burn(e, user1, y, index);
-	uint256 balanceScenario1 = balanceOf(e, user1);
+    burn(e, user1, y, index);
+    uint256 balanceScenario1 = balanceOf(e, user1);
 
-	burn(e, user2, x+y, index);
-	uint256 balanceScenario2 = balanceOf(e, user2);
+    burn(e, user2, x+y, index);
+    uint256 balanceScenario2 = balanceOf(e, user2);
 
     assert bounded_error_eq(balanceScenario1, balanceScenario2, 2, index), "burn is not additive";
-	//assert balanceScenario1 == balanceScenario2, "burn is not additive";
+    //assert balanceScenario1 == balanceScenario2, "burn is not additive";
 }
 
 /*
@@ -230,36 +230,36 @@ Mint is additive, can performed either all at once or gradually
 mint(from,to,x,index); mint(from,to,y,index) ~ mint(from,to,x+y,index) at the same initial state
 */
 rule additiveMint(address user1, address user2, address user3, uint256 x, uint256 y) {
-	env e;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
+    env e;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
     require (user1 != user2  && balanceOf(e, user1) == balanceOf(e, user2));
 
     mint(e, user3, user1, x, index);
-	mint(e, user3, user1, y, index);
-	uint256 balanceScenario1 = balanceOf(e, user1);
+    mint(e, user3, user1, y, index);
+    uint256 balanceScenario1 = balanceOf(e, user1);
 
-	mint(e, user3, user2, x+y, index);
-	uint256 balanceScenario2 = balanceOf(e, user2);
+    mint(e, user3, user2, x+y, index);
+    uint256 balanceScenario2 = balanceOf(e, user2);
 
     assert bounded_error_eq(balanceScenario1, balanceScenario2, 3, index), "burn is not additive";
-	// assert balanceScenario1 == balanceScenario2, "burn is not additive";
+    // assert balanceScenario1 == balanceScenario2, "burn is not additive";
 }
 
 //using exact comparison
 rule additiveMint_excact_should_fail(address user1, address user2, address user3, uint256 x, uint256 y) {
-	env e;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
+    env e;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
     require (user1 != user2  && balanceOf(e, user1) == balanceOf(e, user2));
 
     mint(e, user3, user1, x, index);
-	mint(e, user3, user1, y, index);
-	uint256 balanceScenario1 = balanceOf(e, user1);
+    mint(e, user3, user1, y, index);
+    uint256 balanceScenario1 = balanceOf(e, user1);
 
-	mint(e, user3, user2, x+y, index);
-	uint256 balanceScenario2 = balanceOf(e, user2);
+    mint(e, user3, user2, x+y, index);
+    uint256 balanceScenario2 = balanceOf(e, user2);
 
     //assert bounded_error_eq(balanceScenario1, balanceScenario2, 3, index), "burn is not additive";
-	assert balanceScenario1 == balanceScenario2, "burn is not additive";
+    assert balanceScenario1 == balanceScenario2, "burn is not additive";
 }
 
 /**
@@ -267,90 +267,90 @@ Mint to user u amount of x tokens, increases his balanceOf the user by x.
 (balance is increased by x and not scaled x because of the summarization to one ray)
 */
 rule integrityMint(address a, uint256 x) {
-	env e;
-	address delegatedUser;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	uint256 underlyingBalanceBefore = balanceOf(e, a);
-	uint256 atokenBlanceBefore = scaledBalanceOf(a);
-	uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
-	mint(e, delegatedUser, a, x, index);
-	
-	uint256 underlyingBalanceAfter = balanceOf(e, a);
-	uint256 atokenBlanceAfter = scaledBalanceOf(a);
-	uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
+    env e;
+    address delegatedUser;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 underlyingBalanceBefore = balanceOf(e, a);
+    uint256 atokenBlanceBefore = scaledBalanceOf(a);
+    uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
+    mint(e, delegatedUser, a, x, index);
+    
+    uint256 underlyingBalanceAfter = balanceOf(e, a);
+    uint256 atokenBlanceAfter = scaledBalanceOf(a);
+    uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
 
-	assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
-	assert totalATokenSupplyAfter > totalATokenSupplyBefore;
+    assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
+    assert totalATokenSupplyAfter > totalATokenSupplyBefore;
     assert bounded_error_eq(underlyingBalanceAfter, underlyingBalanceBefore+x, 1, index);
     // assert balanceAfter == balancebefore+x;
 }
 
 //split rule to three - checking underlying alone
 rule integrityMint_underlying(address a, uint256 x) {
-	env e;
-	address delegatedUser;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	uint256 underlyingBalanceBefore = balanceOf(e, a);
-	uint256 atokenBlanceBefore = scaledBalanceOf(a);
-	uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
-	mint(e, delegatedUser, a, x, index);
-	
-	uint256 underlyingBalanceAfter = balanceOf(e, a);
-	uint256 atokenBlanceAfter = scaledBalanceOf(a);
-	uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
+    env e;
+    address delegatedUser;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 underlyingBalanceBefore = balanceOf(e, a);
+    uint256 atokenBlanceBefore = scaledBalanceOf(a);
+    uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
+    mint(e, delegatedUser, a, x, index);
+    
+    uint256 underlyingBalanceAfter = balanceOf(e, a);
+    uint256 atokenBlanceAfter = scaledBalanceOf(a);
+    uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
 
-	//assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
-	//assert totalATokenSupplyAfter > totalATokenSupplyBefore;
+    //assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
+    //assert totalATokenSupplyAfter > totalATokenSupplyBefore;
     assert bounded_error_eq(underlyingBalanceAfter, underlyingBalanceBefore+x, 1, index);
     // assert balanceAfter == balancebefore+x;
 }
 //checking atoken alone
 rule integrityMint_atoken(address a, uint256 x) {
-	env e;
-	address delegatedUser;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	uint256 underlyingBalanceBefore = balanceOf(e, a);
-	uint256 atokenBlanceBefore = scaledBalanceOf(a);
-	uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
-	mint(e, delegatedUser, a, x, index);
-	
-	uint256 underlyingBalanceAfter = balanceOf(e, a);
-	uint256 atokenBlanceAfter = scaledBalanceOf(a);
-	uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
+    env e;
+    address delegatedUser;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 underlyingBalanceBefore = balanceOf(e, a);
+    uint256 atokenBlanceBefore = scaledBalanceOf(a);
+    uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
+    mint(e, delegatedUser, a, x, index);
+    
+    uint256 underlyingBalanceAfter = balanceOf(e, a);
+    uint256 atokenBlanceAfter = scaledBalanceOf(a);
+    uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
 
-	assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
-	//assert totalATokenSupplyAfter > totalATokenSupplyBefore;
+    assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
+    //assert totalATokenSupplyAfter > totalATokenSupplyBefore;
     //assert bounded_error_eq(underlyingBalanceAfter, underlyingBalanceBefore+x, 1, index);
     // assert balanceAfter == balancebefore+x;
 }
 
 
 rule integrityMint_exact_should_fail(address a, uint256 x) {
-	env e; 
-	address delegatedUser;
-	uint256 index = indexAtTimestamp(e.block.timestamp);
-	uint256 underlyingBalanceBefore = balanceOf(e, a);
-	uint256 atokenBlanceBefore = scaledBalanceOf(a);
-	uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
-	mint(e, delegatedUser, a, x, index);
-	
-	uint256 underlyingBalanceAfter = balanceOf(e, a);
-	uint256 atokenBlanceAfter = scaledBalanceOf(a);
-	uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
+    env e; 
+    address delegatedUser;
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 underlyingBalanceBefore = balanceOf(e, a);
+    uint256 atokenBlanceBefore = scaledBalanceOf(a);
+    uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
+    mint(e, delegatedUser, a, x, index);
+    
+    uint256 underlyingBalanceAfter = balanceOf(e, a);
+    uint256 atokenBlanceAfter = scaledBalanceOf(a);
+    uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
 
-	assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
-	assert totalATokenSupplyAfter > totalATokenSupplyBefore;
+    assert atokenBlanceAfter - atokenBlanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore;
+    assert totalATokenSupplyAfter > totalATokenSupplyBefore;
     assert underlyingBalanceAfter == underlyingBalanceBefore+x;
     
 }
 
 // Buring zero amount of tokens should have no effect.
 rule burnZeroDoesntChangeBalance(address u, uint256 index) {
-	env e;
-	uint256 balanceBefore = balanceOf(e, u);
-	burn@withrevert(e, u, 0, index);
-	uint256 balanceAfter = balanceOf(e, u);
-	assert balanceBefore == balanceAfter;
+    env e;
+    uint256 balanceBefore = balanceOf(e, u);
+    burn@withrevert(e, u, 0, index);
+    uint256 balanceAfter = balanceOf(e, u);
+    assert balanceBefore == balanceAfter;
 }
 
 /*
@@ -358,38 +358,38 @@ Burning one user atokens should have no effect on other users that are not invol
 */
 rule burnNoChangeToOther(address user, uint256 amount, uint256 index, address other) {
   
-	require other != user;
-	
-	env e;
-	uint256 otherBalanceBefore = balanceOf(e, other);
-	
-	burn(e, user, amount, index);
-	
-	uint256 otherBalanceAfter = balanceOf(e, other);
+    require other != user;
+    
+    env e;
+    uint256 otherBalanceBefore = balanceOf(e, other);
+    
+    burn(e, user, amount, index);
+    
+    uint256 otherBalanceAfter = balanceOf(e, other);
 
-	assert otherBalanceBefore == otherBalanceAfter;
+    assert otherBalanceBefore == otherBalanceAfter;
 }
 
 /*
 Minting ATokens for a user should have no effect on other users that are not involved in the action.
 */
 rule mintNoChangeToOther(address user, address onBehalfOf, uint256 amount, uint256 index, address other) {
-	require other != user && other != onBehalfOf;
+    require other != user && other != onBehalfOf;
 
-	env e;
-	uint256 userBalanceBefore = balanceOf(e, user);
-	uint256 otherBalanceBefore = balanceOf(e, other);
+    env e;
+    uint256 userBalanceBefore = balanceOf(e, user);
+    uint256 otherBalanceBefore = balanceOf(e, other);
 
-	mint(e, user, onBehalfOf, amount, index);
+    mint(e, user, onBehalfOf, amount, index);
 
-  	uint256 userBalanceAfter = balanceOf(e, user);
-	uint256 otherBalanceAfter = balanceOf(e, other);
+      uint256 userBalanceAfter = balanceOf(e, user);
+    uint256 otherBalanceAfter = balanceOf(e, other);
 
-	if (user != onBehalfOf) {
-		assert userBalanceBefore == userBalanceAfter ; 
-	}
+    if (user != onBehalfOf) {
+        assert userBalanceBefore == userBalanceAfter ; 
+    }
 
-	assert otherBalanceBefore == otherBalanceAfter ;
+    assert otherBalanceBefore == otherBalanceAfter ;
 }
 
 /*
