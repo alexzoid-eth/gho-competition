@@ -47,6 +47,8 @@ definition BURN_FUNCTION(method f) returns bool
 definition MINT_BURN_FUNCTIONS(method f) returns bool
     = MINT_FUNCTION(f) || BURN_FUNCTION(f);
 
+definition PURE_VIEW_FUNCTIONS(method f) returns bool = f.isView || f.isPure;
+
 ////////////////// FUNCTIONS //////////////////////
 
 function toBytes32(address value) returns bytes32 {
@@ -383,7 +385,7 @@ rule level_unchanged_after_mint_followed_by_burn() {
     assert(levelBefore == levelAfter);
 }
 
-// BucketLevel changed correctly after mint
+// [9] BucketLevel changed correctly after mint
 rule level_after_mint() {
     env e;
     calldataarg arg;
@@ -400,7 +402,7 @@ rule level_after_mint() {
 
 }
 
-// BucketLevel changed correctly after burn
+// [11] BucketLevel changed correctly after burn
 rule level_after_burn() {
     env e;
     calldataarg arg;
@@ -482,7 +484,7 @@ rule address_not_in_list_after_removeFacilitator(address facilitator) {
     assert(before && !inFacilitatorsList(toBytes32(facilitator)));
 }
 
-// Balance changed correctly after `mint()`
+// [10] Balance changed correctly after `mint()`
 rule balance_after_mint() {
     env e;
     address user;
@@ -501,7 +503,7 @@ rule balance_after_mint() {
     assert(initSupply + amount == to_mathint(finSupply));
 }
 
-// Balance changed correctly after `burn()`
+// [12] Balance changed correctly after `burn()`
 rule balance_after_burn() {
     env e;
     requireInvariant inv_balanceOf_leq_totalSupply(e.msg.sender);
@@ -575,3 +577,55 @@ rule mintBurnRevertWhenZeroAmount(env e, address account, uint256 amount) {
 
     assert(amount == 0 => mintReverted && burnReverted);
 }
+
+// [6] Only account with `FACILITATOR_MANAGER_ROLE` can add or remove facilitators
+rule onlyFacilitatorManagerCouldModifyFacilitatorList(env e, method f, calldataarg args)
+    filtered { f -> !PURE_VIEW_FUNCTIONS(f) } {
+    
+    bool isManager = GhoTokenHelper.hasFacilitatorManagerRole(e.msg.sender);
+    uint256 listLengthBefore = ghostFacilitatorsListLength;
+
+    f(e, args);
+    
+    assert(listLengthBefore != ghostFacilitatorsListLength => isManager);
+}
+
+// [7] Only account with `BUCKET_MANAGER_ROLE` can modify bucketCapacity
+rule onlyBucketManagerCouldModifyBucketCapacity(env e, method f, calldataarg args, address facilitator)
+    filtered { f -> !PURE_VIEW_FUNCTIONS(f) } {
+    
+    bool isManager = GhoTokenHelper.hasBacketManagerRole(e.msg.sender);
+
+    // Facilitator exists
+    bool facilitatorExistBefore = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+
+    uint256 bucketCapacityBefore = GhoTokenHelper.getFacilitatorBucketCapacity(facilitator);
+    f(e, args);
+    uint256 bucketCapacityAfter = GhoTokenHelper.getFacilitatorBucketCapacity(facilitator);
+
+    // Facilitator was not removed
+    bool facilitatorExistAfter = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+    bool facilitatorExist = facilitatorExistBefore && facilitatorExistAfter;
+
+    // Was modified
+    bool bucketCapacityModified = bucketCapacityBefore != bucketCapacityAfter;
+
+    assert(facilitatorExist && bucketCapacityModified => isManager);
+}
+
+// [8] Mint and burn affect only sender's facilitator
+rule mintBurnAffectOnlySenderFacilitator(env e, method f, calldataarg args) 
+    filtered { f -> MINT_BURN_FUNCTIONS(f) } {
+    
+    address other;
+    require(other != e.msg.sender);
+
+    uint128 otherBucketLevelBefore = ghostBucketLevels[other];
+
+    f(e, args);
+
+    uint128 otherBucketLevelAfter = ghostBucketLevels[other];
+
+    assert(otherBucketLevelBefore == otherBucketLevelAfter);
+}
+

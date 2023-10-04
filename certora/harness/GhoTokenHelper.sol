@@ -65,4 +65,13 @@ contract GhoTokenHelper {
   function hasFacilitatorManagerRole(address account) external view returns (bool) {
     return ghoToken.hasRole(ghoToken.FACILITATOR_MANAGER_ROLE(), account);
   }
+
+  /**
+   * @notice Check if account has BUCKET_MANAGER_ROLE
+   * @param account Some address
+   * @return true if account has BUCKET_MANAGER_ROLE, false othserwise
+   */
+  function hasBacketManagerRole(address account) external view returns (bool) {
+    return ghoToken.hasRole(ghoToken.BUCKET_MANAGER_ROLE(), account);
+  }
 }
