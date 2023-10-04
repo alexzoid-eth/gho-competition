@@ -6,4 +6,6 @@ methods{
     function GhoTokenHelper.getFacilitatorsListLen() external returns (uint256) envfree;
     function GhoTokenHelper.getFacilitatorsLabelLen(address facilitator) external returns (uint256) envfree;
     function GhoTokenHelper.toBytes32(address value) external returns (bytes32) envfree;
+
+    function GhoTokenHelper.hasFacilitatorManagerRole(address account) external returns (bool);
 }

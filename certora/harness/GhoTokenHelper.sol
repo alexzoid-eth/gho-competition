@@ -52,4 +52,17 @@ contract GhoTokenHelper {
   function toBytes32(address value) external pure returns (bytes32 b) {
     b = bytes32(uint256(uint160(value)));
   }
+
+  //
+  // Added functions
+  //
+
+  /**
+   * @notice Check if account has FACILITATOR_MANAGER_ROLE
+   * @param account Some address
+   * @return true if account has FACILITATOR_MANAGER_ROLE, false othserwise
+   */
+  function hasFacilitatorManagerRole(address account) external view returns (bool) {
+    return ghoToken.hasRole(ghoToken.FACILITATOR_MANAGER_ROLE(), account);
+  }
 }

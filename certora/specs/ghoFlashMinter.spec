@@ -11,10 +11,9 @@ methods{
     // ACL_MANAGER
     function _.isPoolAdmin(address user) external => retrievePoolAdminFromGhost(user) expect bool ALL;
     function _.isFlashBorrower(address user) external => retrieveFlashBorrowerFromGhost(user) expect bool ALL;
+    //function _.onFlashLoan(address, address, uint256, uint256, bytes) external => DISPATCHER(true);
 
     // IERC3156FlashBorrower 
-    function flashBorrower.onFlashLoan(
-        address initiator, address token, uint256 amount, uint256 fee, bytes calldata data) external;
     function flashBorrower.action() external returns (MockFlashBorrower.Action) envfree;
     function flashBorrower._transferTo() external returns (address) envfree;
     
@@ -41,11 +40,22 @@ methods{
 
 ////////////////// FUNCTIONS //////////////////////
 
+// a set of assumptions needed for rules that call flashloan
+function flashLoanReqs(env e){
+    require e.msg.sender != currentContract;
+    require gho.allowance(currentContract, e.msg.sender) == 0;
+}
+
+// an assumption that demands the sum of balances of 3 given users is no more than the total supply
+function ghoBalanceOfTwoUsersLETotalSupply(address user1, address user2, address user3){
+    require gho.balanceOf(user1) + gho.balanceOf(user2) + gho.balanceOf(user3) <= to_mathint(gho.totalSupply());
+}
+
 ///////////////// GHOSTS & HOOKS //////////////////
 
-/**
-* ACL_MANAGER.isPoolAdmin() and ACL_MANAGER.isFlashBorrower() summarisation
-*/
+//
+// ACL_MANAGER.isPoolAdmin() and ACL_MANAGER.isFlashBorrower() summarisation
+// 
 
 // keeps track of users with pool admin permissions in order to return a consistent value per user
 ghost mapping(address => bool) poolAdmin_ghost;
@@ -61,24 +71,11 @@ function retrieveFlashBorrowerFromGhost(address user) returns bool{
     return flashBorrower_ghost[user];
 }
 
+///////////////// PROPERTIES //////////////////////
 
-
-// a set of assumptions needed for rules that call flashloan
-function flashLoanReqs(env e){
-    require e.msg.sender != currentContract;
-    require gho.allowance(currentContract, e.msg.sender) == 0;
-}
-
-// an assumption that demands the sum of balances of 3 given users is no more than the total supply
-function ghoBalanceOfTwoUsersLETotalSupply(address user1, address user2, address user3){
-    require gho.balanceOf(user1) + gho.balanceOf(user2) + gho.balanceOf(user3) <= to_mathint(gho.totalSupply());
-}
-
-/**
- * @title The GHO balance of the flash minter should grow when calling any function, excluding distributeFees
- */
+// The GHO balance of the flash minter should grow when calling any function, excluding distributeFees
 rule balanceOfFlashMinterGrows(method f, env e, calldataarg args) 
-    filtered { f -> f.selector != sig:distributeFeesToTreasury().selector }{
+    filtered { f -> f.selector != sig:distributeFeesToTreasury().selector } {
     
     // No overflow of gho is possible
     ghoBalanceOfTwoUsersLETotalSupply(currentContract, e.msg.sender, atoken);
@@ -93,32 +90,29 @@ rule balanceOfFlashMinterGrows(method f, env e, calldataarg args)
 
     uint256 facilitatorBalance_ = gho.balanceOf(currentContract);
 
-    assert facilitatorBalance_ >= _facilitatorBalance;
+    assert(facilitatorBalance_ >= _facilitatorBalance);
 }
 
-/**
- * @title Checks the integrity of updateGhoTreasury - after update the given address is set
- */
+// Checks the integrity of updateGhoTreasury - after update the given address is set
 rule integrityOfTreasurySet(address token){
     env e;
     updateGhoTreasury(e, token);
+
     address treasury_ = getGhoTreasury(e);
-    assert treasury_ == token;
+
+    assert(treasury_ == token);
 }
 
-/**
- * @title Checks the integrity of updateFee - after update the given value is set
- */
+// Checks the integrity of updateFee - after update the given value is set
 rule integrityOfFeeSet(uint256 new_fee){
     env e;
     updateFee(e, new_fee);
     uint256 fee_ = getFee(e);
-    assert fee_ == new_fee;
+
+    assert(fee_ == new_fee);
 }
 
-/**
- * @title Checks that the available liquidity, retrieved by maxFlashLoan, stays the same after any action 
- */
+// Checks that the available liquidity, retrieved by maxFlashLoan, stays the same after any action
 rule availableLiquidityDoesntChange(method f, address token){
     env e; calldataarg args;
     uint256 _liquidity = maxFlashLoan(e, token);
@@ -127,14 +121,14 @@ rule availableLiquidityDoesntChange(method f, address token){
 
     uint256 liquidity_ = maxFlashLoan(e, token);
 
-    assert liquidity_ == _liquidity;
+    assert(liquidity_ == _liquidity);
 }
 
-/**
- * @title Checks the integrity of distributeFees:
- *        1. As long as the treasury contract itself isn't acting as a flashloan minter, the flashloan facilitator's GHO balance should be empty after distribution
- *        2. The change in balances of the receiver (treasury) and the sender (flash minter) is the same. i.e. no money is being generated out of thin air
- */
+// Checks the integrity of distributeFees:
+//  1. As long as the treasury contract itself isn't acting as a flashloan minter, the flashloan 
+//      facilitator's GHO balance should be empty after distribution
+//  2. The change in balances of the receiver (treasury) and the sender (flash minter) is the 
+//      same. i.e. no money is being generated out of thin air
 rule integrityOfDistributeFeesToTreasury(){
     env e;
     address treasury = getGhoTreasury(e);
@@ -148,13 +142,11 @@ rule integrityOfDistributeFeesToTreasury(){
     uint256 facilitatorBalance_ = gho.balanceOf(currentContract);
     uint256 treasuryBalance_ = gho.balanceOf(treasury);
 
-    assert treasury != currentContract => facilitatorBalance_ == 0;
-    assert treasuryBalance_ - _treasuryBalance == _facilitatorBalance - facilitatorBalance_;
+    assert(treasury != currentContract => facilitatorBalance_ == 0);
+    assert(treasuryBalance_ - _treasuryBalance == _facilitatorBalance - facilitatorBalance_);
 }
 
-/**
- * @title Checks that the fee amount reported by flashFee is the the same as the actual fee that is taken by flashloaning
- */
+// Checks that the fee amount reported by flashFee is the the same as the actual fee that is taken by flashloaning
 rule feeSimulationEqualsActualFee(address receiver, address token, uint256 amount, bytes data){
     env e;
     mathint feeSimulationResult = flashFee(e, token, amount);
@@ -176,13 +168,10 @@ rule feeSimulationEqualsActualFee(address receiver, address token, uint256 amoun
 
     mathint actualFee = facilitatorBalance_ - _facilitatorBalance;
 
-    assert feeSimulationResult == actualFee;
+    assert(feeSimulationResult == actualFee);
 }
 
-rule sanity {
-    env e;
-    calldataarg arg;
-    method f;
+rule sanity(env e, calldataarg arg, method f) {    
     f(e, arg);
-    satisfy true;
+    satisfy(true);
 }

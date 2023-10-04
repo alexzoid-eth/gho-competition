@@ -1,0 +1,13 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..28b0874 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -27,7 +27,7 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+    * @param admin This is the initial holder of the default admin role
+    */
+   constructor(address admin) ERC20('Gho Token', 'GHO', 18) {
+-    _setupRole(DEFAULT_ADMIN_ROLE, admin);
++    //_setupRole(DEFAULT_ADMIN_ROLE, admin);
+   }
+ 
+   /// @inheritdoc IGhoToken
