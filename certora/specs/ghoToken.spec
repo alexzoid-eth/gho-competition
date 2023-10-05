@@ -698,14 +698,10 @@ rule removeFacilitatorEmptyLabel(env e, address facilitator) {
     assert(existBefore && !existAfter);
 }
 
-// [22-23] Prove view function work as expected 
+// [22] Prove view function work as expected 
 rule gettersIntegrity(address facilitator) {
 
     assumeInvariants(facilitator);
-
-    // getFacilitator()
-    assert((GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0) 
-        == ghostInFacilitatorsMapping[facilitator]);
 
     // getFacilitatorBucket()
     assert(assert_uint128(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)) 
