@@ -6,9 +6,9 @@ methods{
     // GhoToken
     function mint(address account, uint256 amount) external;
     function burn(uint256 amount) external;
-    function addFacilitator(address facilitatorAddress, string memory facilitatorLabel, 
+    function addFacilitator(address facilitator, string memory facilitatorLabel, 
         uint128 bucketCapacity) external;
-    function removeFacilitator(address facilitatorAddress) external;
+    function removeFacilitator(address facilitator) external;
     function setFacilitatorBucketCapacity(address facilitator, uint128 newCapacity) external;
     function getFacilitator(address facilitator) external returns (IGhoToken.Facilitator) envfree;
     function getFacilitatorBucket(address facilitator) external returns (uint256, uint256) envfree;
@@ -430,7 +430,7 @@ rule facilitator_in_list_after_setFacilitatorBucketCapacity() {
     assert(inFacilitatorsList(toBytes32(facilitator)));
 }
 
-// GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() 
+// [21] GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() 
 //  return the assign bucket capacity 
 rule getFacilitatorBucketCapacity_after_setFacilitatorBucketCapacity() {
     env e;
@@ -442,7 +442,7 @@ rule getFacilitatorBucketCapacity_after_setFacilitatorBucketCapacity() {
     assert(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) == require_uint256(newCapacity));
 }
 
-// Facilitator is valid after successful call to addFacilitator()
+// [13] Facilitator is valid after successful call to addFacilitator()
 rule facilitator_in_list_after_addFacilitator() {
     env e;
     address facilitator;
@@ -472,7 +472,7 @@ rule facilitator_in_list_after_mint_and_burn(method f) {
     );
 }
 
-// Facilitator address is removed from list  (GhoToken._facilitatorsList._values) after calling removeFacilitator()
+// [16] Facilitator address is removed from list  (GhoToken._facilitatorsList._values) after calling removeFacilitator()
 rule address_not_in_list_after_removeFacilitator(address facilitator) {
     env e;
 
@@ -549,6 +549,15 @@ rule burnLimitedByFacilitatorLevel() {
 }
 
 ///////////////// ADDED PROPERTIES //////////////////////
+
+// [1] addFacilitator() set label and bucket capacity 
+rule addFacilitatorSetLabelAndBucketCapacity(env e, address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
+    
+    addFacilitator(e, facilitator, facilitatorLabel, bucketCapacity);
+
+    assert(facilitatorLabel.length == GhoTokenHelper.getFacilitatorsLabelLen(facilitator));
+    assert(bucketCapacity == assert_uint128(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)));
+}
 
 // [2] Prove that `DEFAULT_ADMIN_ROLE` setup in constructor
 invariant adminRoleSetupInConstructor() adminRoleSetup {
@@ -629,3 +638,83 @@ rule mintBurnAffectOnlySenderFacilitator(env e, method f, calldataarg args)
     assert(otherBucketLevelBefore == otherBucketLevelAfter);
 }
 
+// [14] Couln't add the same (with the same label) facilitator twice
+rule facilitatorNotAddedTwice(address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
+
+    env e1;
+    addFacilitator(e1, facilitator, facilitatorLabel, bucketCapacity);
+
+    env e2;
+    addFacilitator@withrevert(e2, facilitator, facilitatorLabel, bucketCapacity);
+
+    assert(lastReverted);
+}
+
+// [15] Couln't add facilitator with empty label
+rule facilitatorAddedWithEmptyLabelRevert(env e, address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
+    
+    addFacilitator@withrevert(e, facilitator, facilitatorLabel, bucketCapacity);
+    
+    assert(facilitatorLabel.length == 0 => lastReverted);
+}
+
+// [17,20] Only existing facilitator could be removed or set bucket capacity
+rule onlyExistingFacilitatorCouldBeRemovedOrSetBucketCapacity(address facilitator) {
+
+    storage init = lastStorage;
+    bool exist = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+
+    env e1;
+    removeFacilitator@withrevert(e1, facilitator) at init;
+    bool removeReverted = lastReverted;
+
+    env e2;
+    uint128 newCapacity;
+    setFacilitatorBucketCapacity@withrevert(e2, facilitator, newCapacity) at init;
+    bool setBucketCapacityReverted = lastReverted;
+
+    assert(!exist => removeReverted && setBucketCapacityReverted);
+}
+
+// [18] Only facilitator with zero bucketLevel could be removed
+rule onlyFacilitatorWithZeroBucketLevelCouldBeRemoved(env e, address facilitator) {
+
+    uint256 bucketLevel = GhoTokenHelper.getFacilitatorBucketLevel(facilitator);
+
+    removeFacilitator(e, facilitator);
+
+    assert(bucketLevel == 0);
+}
+
+// [19] Facilitator's label empty after been removed
+rule removeFacilitatorEmptyLabel(env e, address facilitator) {
+
+    bool existBefore = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+
+    removeFacilitator(e, facilitator);
+
+    bool existAfter = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+
+    assert(existBefore && !existAfter);
+}
+
+// [22-23] Prove view function work as expected 
+rule gettersIntegrity(address facilitator) {
+
+    assumeInvariants(facilitator);
+
+    // getFacilitator()
+    assert((GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0) 
+        == ghostInFacilitatorsMapping[facilitator]);
+
+    // getFacilitatorBucket()
+    assert(assert_uint128(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)) 
+        == ghostBucketCapacity[facilitator]);
+    assert(assert_uint128(GhoTokenHelper.getFacilitatorBucketLevel(facilitator)) 
+        == ghostBucketLevels[facilitator]);
+
+    // getFacilitatorsList()
+    assert(GhoTokenHelper.getFacilitatorsListLen() == ghostFacilitatorsListLength);
+}
+
+// TODO: ERC20.sol

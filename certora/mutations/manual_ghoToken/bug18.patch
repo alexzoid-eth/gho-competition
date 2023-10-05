@@ -1,0 +1,13 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..30702e4 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -90,7 +90,7 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+       'FACILITATOR_DOES_NOT_EXIST'
+     );
+     require(
+-      _facilitators[facilitatorAddress].bucketLevel == 0,
++      _facilitators[facilitatorAddress].bucketLevel != 0,
+       'FACILITATOR_BUCKET_LEVEL_NOT_ZERO'
+     );
+ 

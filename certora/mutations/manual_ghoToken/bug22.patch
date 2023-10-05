@@ -1,0 +1,13 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..46b29bb 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -120,7 +120,7 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+ 
+   /// @inheritdoc IGhoToken
+   function getFacilitatorBucket(address facilitator) external view returns (uint256, uint256) {
+-    return (_facilitators[facilitator].bucketCapacity, _facilitators[facilitator].bucketLevel);
++    return (_facilitators[facilitator].bucketLevel, _facilitators[facilitator].bucketCapacity);
+   }
+ 
+   /// @inheritdoc IGhoToken

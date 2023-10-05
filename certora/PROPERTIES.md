@@ -53,7 +53,7 @@
   - Facilitator is valid after successful call to setFacilitatorBucketCapacity()
 - `getFacilitatorBucketCapacity_after_setFacilitatorBucketCapacity`
   - GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() return the assign bucket capacity
-- `facilitatorInListAfterAddFacilitator`
+- `facilitator_in_list_after_addFacilitator`
   - Facilitator is valid after successful call to `addFacilitator()`
 
 ## Setup

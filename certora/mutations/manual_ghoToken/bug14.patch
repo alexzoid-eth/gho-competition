@@ -1,0 +1,13 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..dc58b22 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -66,7 +66,7 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+     uint128 bucketCapacity
+   ) external onlyRole(FACILITATOR_MANAGER_ROLE) {
+     Facilitator storage facilitator = _facilitators[facilitatorAddress];
+-    require(bytes(facilitator.label).length == 0, 'FACILITATOR_ALREADY_EXISTS');
++    //require(bytes(facilitator.label).length == 0, 'FACILITATOR_ALREADY_EXISTS');
+     require(bytes(facilitatorLabel).length > 0, 'INVALID_LABEL');
+ 
+     facilitator.label = facilitatorLabel;
