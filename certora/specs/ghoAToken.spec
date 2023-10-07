@@ -644,38 +644,27 @@ rule ghoTokensCouldBeTransferredOutToGhoTresauryOnly(env e, method f, calldataar
     assert(!reverted && transferOutAmount != 0 => tresauryBalanceAfter == currentBalanceBefore);
 }
 
-// TODO: bug15 not caught
 // [13,15] Possibility of anyone to withdraw GHO tokens to the GHO Tresaury 
-
-function distributeFeesToTreasuryAsUser(address user, storage init, uint256 currentBalanceBefore) returns uint256 {
-    env e;
-    require(e.msg.sender == user);
-    distributeFeesToTreasury(e) at init;
-    uint256 currentBalanceAfter = _GhoTokenHarness.balanceOf(e, currentContract);
-    uint256 transferOutAmount = currentBalanceBefore > currentBalanceAfter  
-        ? assert_uint256(currentBalanceBefore - currentBalanceAfter)
-        : 0;
-    return transferOutAmount; 
-}
-
-rule possibilityOfTransferOutGhoTokensToTresaury(env e, address user1, address user2) {
+rule possibilityOfTransferOutGhoTokensToTresaury(env e) {
 
     setUp();    
 
-    // Try withdraw fee with different users
-    require(user1 != user2);
-    require(user1 != currentContract);
-    require(user1 != ghostGhoTreasury);
-    require(user1 != _GhoTokenHarness);
+    // User without any privilege
+    address user;
+    require(user == e.msg.sender
+        && user != currentContract
+        && user != ghostGhoTreasury
+        && user != _GhoTokenHarness
+        && user != getPoolAddress()
+        && !isPoolAdmin(e, user)
+    );
 
     // Current contract and treasury have some GHO tokens
     uint256 currentBalanceBefore = _GhoTokenHarness.balanceOf(e, currentContract);
-    uint256 user1Balance = _GhoTokenHarness.balanceOf(e, user1);
-    uint256 user2Balance = _GhoTokenHarness.balanceOf(e, user2);
+    uint256 userBalance = _GhoTokenHarness.balanceOf(e, user);
     uint256 tresauryBalanceBefore = _GhoTokenHarness.balanceOf(e, ghostGhoTreasury);
     require(currentBalanceBefore != 0 
-        && currentBalanceBefore != user1Balance 
-        && currentBalanceBefore != user2Balance
+        && currentBalanceBefore != userBalance 
         && currentBalanceBefore != tresauryBalanceBefore
     );
 
@@ -683,21 +672,17 @@ rule possibilityOfTransferOutGhoTokensToTresaury(env e, address user1, address u
     uint256 ghoTotalSupply = _GhoTokenHarness.totalSupply(e);
     require(require_uint256(currentBalanceBefore + tresauryBalanceBefore) <= ghoTotalSupply);
 
-    storage init = lastStorage;
+    distributeFeesToTreasury(e);
 
-    // Execute distributeFeesToTreasury() as user1
-    uint256 transferOutAmount1 = distributeFeesToTreasuryAsUser(user1, init, currentBalanceBefore);
-    uint256 tresauryBalanceAfter1 = _GhoTokenHarness.balanceOf(e, ghostGhoTreasury);
-
-    // Execute distributeFeesToTreasury() as user2
-    uint256 transferOutAmount2 = distributeFeesToTreasuryAsUser(user2, init, currentBalanceBefore);
-    uint256 tresauryBalanceAfter2 = _GhoTokenHarness.balanceOf(e, ghostGhoTreasury);
+    uint256 currentBalanceAfter = _GhoTokenHarness.balanceOf(e, currentContract);
+    uint256 transferOutAmount = currentBalanceBefore > currentBalanceAfter  
+        ? assert_uint256(currentBalanceBefore - currentBalanceAfter)
+        : 0;
+    uint256 tresauryBalanceAfter = _GhoTokenHarness.balanceOf(e, ghostGhoTreasury);
 
     // Any user can withdraw all tokens as a fee to the tresaury
-    uint256 currentBalanceAfter = _GhoTokenHarness.balanceOf(e, currentContract);
     satisfy(currentBalanceAfter == 0 
-        && tresauryBalanceAfter1 == require_uint256(tresauryBalanceBefore + transferOutAmount1)
-        && tresauryBalanceAfter1 == tresauryBalanceAfter2
+        && tresauryBalanceAfter == require_uint256(tresauryBalanceBefore + transferOutAmount)
     );
 }
 
