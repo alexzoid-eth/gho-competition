@@ -1,0 +1,29 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..5efdba8 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -66,7 +66,7 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+     string calldata aTokenName,
+     string calldata aTokenSymbol,
+     bytes calldata params
+-  ) external override initializer {
++  ) external override {
+     require(initializingPool == POOL, Errors.POOL_ADDRESSES_DO_NOT_MATCH);
+     _setName(aTokenName);
+     _setSymbol(aTokenSymbol);
+diff --git a/src/test/TestGhoAToken.t.sol b/src/test/TestGhoAToken.t.sol
+index 8326c34..4abc41c 100644
+--- a/src/test/TestGhoAToken.t.sol
++++ b/src/test/TestGhoAToken.t.sol
+@@ -174,6 +174,11 @@ contract TestGhoAToken is TestGhoBase {
+     assertEq(balance, 0, 'AToken balance should always be zero');
+   }
+ 
++  function testScaledBalanceOfAlwaysZero() public {
++    uint256 balance = GHO_ATOKEN.scaledBalanceOf(CHARLES);
++    assertEq(balance, 0, 'AToken balance should always be zero');
++  }
++
+   function testTotalSupplyAlwaysZero() public {
+     uint256 supply = GHO_ATOKEN.totalSupply();
+     assertEq(supply, 0, 'AToken total supply should always be zero');

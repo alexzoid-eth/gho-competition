@@ -1,3 +1,32 @@
+# GhoAToken
+
+## High-Level
+
+- `transferUnderlyingToCantExceedCapacity`
+  - Proves that calling ghoAToken::transferUnderlyingTo will revert if the amount exceeds the excess capacity
+- `integrityTransferUnderlyingToWithHandleRepayment`
+  - BucketLevel decreases after transferUnderlyingTo() followed by handleRepayment()
+
+## Valid States
+
+- `totalSupplyAlwaysZero`
+  - Proves that the total supply of GhoAToken is always zero
+- `userBalanceAlwaysZero`
+  - Proves that any user's balance of GhoAToken is always zero
+
+## State Transitions
+
+## Variable Transitions
+
+## Unit Tests
+
+- `noMint`
+  - Proves that ghoAToken::mint always reverts
+- `noBurn`
+  - Proves that ghoAToken::burn always reverts
+- `noTransfer`
+  - Proves that ghoAToken::transfer always reverts
+
 # GhoToken
 
 ## High-Level

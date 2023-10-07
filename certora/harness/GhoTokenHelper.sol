@@ -74,4 +74,14 @@ contract GhoTokenHelper {
   function hasBacketManagerRole(address account) external view returns (bool) {
     return ghoToken.hasRole(ghoToken.BUCKET_MANAGER_ROLE(), account);
   }
+
+  /**
+   * @notice Compare two strings
+   * @param a first string
+   * @param b second string
+   * @return true if equal, false othserwise
+   */
+  function compareStrings(string memory a, string memory b) external pure returns (bool) {
+    return keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b));
+  }
 }

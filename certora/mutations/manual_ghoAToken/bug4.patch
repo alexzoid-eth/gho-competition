@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..efcb6c7 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -76,7 +76,7 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+     _underlyingAsset = underlyingAsset;
+     _incentivesController = incentivesController;
+ 
+-    _domainSeparator = _calculateDomainSeparator();
++    // _domainSeparator = _calculateDomainSeparator();
+ 
+     emit Initialized(
+       underlyingAsset,

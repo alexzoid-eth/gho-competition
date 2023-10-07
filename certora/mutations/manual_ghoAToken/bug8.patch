@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..f81bf0f 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -231,7 +231,7 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+ 
+   /// @inheritdoc IGhoAToken
+   function setVariableDebtToken(address ghoVariableDebtToken) external override onlyPoolAdmin {
+-    require(address(_ghoVariableDebtToken) == address(0), 'VARIABLE_DEBT_TOKEN_ALREADY_SET');
++    //require(address(_ghoVariableDebtToken) == address(0), 'VARIABLE_DEBT_TOKEN_ALREADY_SET');
+     require(ghoVariableDebtToken != address(0), 'ZERO_ADDRESS_NOT_VALID');
+     _ghoVariableDebtToken = GhoVariableDebtToken(ghoVariableDebtToken);
+     emit VariableDebtTokenSet(ghoVariableDebtToken);

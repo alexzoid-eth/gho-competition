@@ -3,6 +3,11 @@ import "./methods/ghoTokenHelperMethods.spec";
 ///////////////// METHODS //////////////////////
 
 methods{
+
+    //
+    // Current contract
+    //
+
     // GhoToken
     function mint(address account, uint256 amount) external;
     function burn(uint256 amount) external;
@@ -120,6 +125,7 @@ hook Sstore currentContract._facilitators[KEY address a].(offset 32) uint256 str
 ghost uint256 ghostFacilitatorsListLength {
     // assumption: it's infeasible to grow the list to these many elements.
     axiom ghostFacilitatorsListLength < max_uint64;
+    init_state axiom ghostFacilitatorsListLength == 0;
 }
 
 hook Sload uint256 length currentContract._facilitatorsList.(offset 0) STORAGE {
@@ -155,7 +161,7 @@ hook Sstore currentContract._facilitatorsList._inner._indexes[KEY bytes32 val] u
 }
 
 //
-// ERC20.totalSupply
+// Ghost copy of `ERC20.totalSupply`
 //
 
 ghost uint256 ghostTotalSupply {
@@ -171,7 +177,7 @@ hook Sstore currentContract.totalSupply uint256 val STORAGE {
 }
 
 //
-// ERC20.balanceOf
+// Ghost copy of `ERC20.balanceOf`
 //
 
 ghost mapping (address => uint256) ghostBalanceOfMapping {
@@ -193,31 +199,31 @@ hook Sstore currentContract.balanceOf[KEY address a] uint256 balance (uint256 ol
 }
 
 //
-// ERC20.name
+// Ghost copy of `ERC20.name`
 //
 
-ghost mathint erc20NameLength {
-    init_state axiom erc20NameLength == 0;
+ghost mathint nameLength {
+    init_state axiom nameLength == 0;
 }
 
 hook Sstore currentContract.name.(offset 0) uint256 val STORAGE {
-    erc20NameLength = val;
+    nameLength = val;
 }
 
 //
-// ERC20.symbol
+// Ghost copy of `ERC20.symbol`
 //
 
-ghost mathint erc20SymbolLength {
-    init_state axiom erc20SymbolLength == 0;
+ghost mathint symbolLength {
+    init_state axiom symbolLength == 0;
 }
 
 hook Sstore currentContract.symbol.(offset 0) uint256 val STORAGE {
-    erc20SymbolLength = val;
+    symbolLength = val;
 }
 
 //
-// AccessControl._roles
+// Ghost copy of `AccessControl._roles`
 //
 
 ghost bool adminRoleSetup {
@@ -551,7 +557,7 @@ rule burnLimitedByFacilitatorLevel() {
 ///////////////// ADDED PROPERTIES //////////////////////
 
 // [1] addFacilitator() set label and bucket capacity 
-rule addFacilitatorSetLabelAndBucketCapacity(env e, address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
+rule addFacilitatorShouldSetLabelAndBucketCapacity(env e, address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
     
     addFacilitator(e, facilitator, facilitatorLabel, bucketCapacity);
 
@@ -559,22 +565,25 @@ rule addFacilitatorSetLabelAndBucketCapacity(env e, address facilitator, string 
     assert(bucketCapacity == assert_uint128(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)));
 }
 
+// TODO: Sanity fail, the only way to test constructor. Skip it?
+/*
 // [2] Prove that `DEFAULT_ADMIN_ROLE` setup in constructor
-invariant adminRoleSetupInConstructor() adminRoleSetup {
+invariant adminRoleSetupInConstructor() adminRoleSetup == true {
     preserved {
         require(false);
     }
 }
 
 // [3] Prove that ERC20 setup correctly in constructor
-invariant erc20SetupInConstructor() erc20NameLength > 0 && erc20SymbolLength > 0 {
+invariant erc20SetupInConstructor() nameLength > 0 && symbolLength > 0 {
     preserved {
         require(false);
     }
 }
+*/
 
 // [4] Mint and burn revert when amount is zero
-rule mintBurnRevertWhenZeroAmount(env e, address account, uint256 amount) {
+rule mintBurnShouldRevertWhenZeroAmount(env e, address account, uint256 amount) {
 
     storage init = lastStorage;
 
@@ -639,7 +648,7 @@ rule mintBurnAffectOnlySenderFacilitator(env e, method f, calldataarg args)
 }
 
 // [14] Couln't add the same (with the same label) facilitator twice
-rule facilitatorNotAddedTwice(address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
+rule facilitatorShouldNotAddedTwice(address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
 
     env e1;
     addFacilitator(e1, facilitator, facilitatorLabel, bucketCapacity);
@@ -651,7 +660,7 @@ rule facilitatorNotAddedTwice(address facilitator, string facilitatorLabel, uint
 }
 
 // [15] Couln't add facilitator with empty label
-rule facilitatorAddedWithEmptyLabelRevert(env e, address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
+rule facilitatorAddedWithEmptyLabelShouldRevert(env e, address facilitator, string facilitatorLabel, uint128 bucketCapacity) {
     
     addFacilitator@withrevert(e, facilitator, facilitatorLabel, bucketCapacity);
     
@@ -687,7 +696,7 @@ rule onlyFacilitatorWithZeroBucketLevelCouldBeRemoved(env e, address facilitator
 }
 
 // [19] Facilitator's label empty after been removed
-rule removeFacilitatorEmptyLabel(env e, address facilitator) {
+rule removeFacilitatorShouldEmptyLabel(env e, address facilitator) {
 
     bool existBefore = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
 

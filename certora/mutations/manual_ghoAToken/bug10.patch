@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..0e93c11 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -224,7 +224,7 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+   }
+ 
+   /// @inheritdoc IAToken
+-  function rescueTokens(address token, address to, uint256 amount) external override onlyPoolAdmin {
++  function rescueTokens(address token, address to, uint256 amount) external override {
+     require(token != _underlyingAsset, Errors.UNDERLYING_CANNOT_BE_RESCUED);
+     IERC20(token).safeTransfer(to, amount);
+   }

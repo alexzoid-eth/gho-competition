@@ -2,10 +2,20 @@
 
 # Apply a bug, run prover and restore original file
 # Run from the root git directory. Run without bug's number parameter to not apply any patches
+#
 # Examples:
-#    ./certora/mutations/verifyBug.sh verifyRewardsController --rule initializeCalledOnce
-#    ./certora/mutations/verifyBug.sh verifyRewardsController certora --rule initializeCalledOnce
-#    ./certora/mutations/verifyBug.sh verifyRewardsController participants 2
+# 
+# Run ghoAToken.conf:
+#    ./certora/mutations/checkMutation.sh ghoAToken
+#
+# Run ghoAToken.conf with additional parameters:
+#    ./certora/mutations/checkMutation.sh ghoAToken manual --rule possibilityOfTransferOutGhoTokensToTresaury
+#
+# Prove bug15.patch for ghoAToken.conf:
+#    ./certora/mutations/checkMutation.sh ghoAToken manual 15
+#
+# Prove bug15.patch for possibilityOfTransferOutGhoTokensToTresaury() rule in ghoAToken.conf:
+#    ./certora/mutations/checkMutation.sh ghoAToken manual 15 --rule possibilityOfTransferOutGhoTokensToTresaury
 
 if [ "$#" -lt 1 ]; then
     echo "Please provide the configuration name as the first argument (e.g., 'verifyRewardsController'). Optionally, provide the path as the second argument (either 'certora' or 'participants')."
