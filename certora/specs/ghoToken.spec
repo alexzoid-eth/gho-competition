@@ -57,7 +57,7 @@ definition PURE_VIEW_FUNCTIONS(method f) returns bool = f.isView || f.isPure;
 ////////////////// FUNCTIONS //////////////////////
 
 function toBytes32(address value) returns bytes32 {
-    return GhoTokenHelper.toBytes32(value);
+    return _GhoTokenHelper.toBytes32(value);
 }
 
 ///////////////// GHOSTS & HOOKS //////////////////
@@ -256,7 +256,7 @@ invariant addr_in_set_iff_in_map(address facilitator)
 
 // `Facilitator.label` <=> `ghoToken.getFacilitator(facilitator).label`
 invariant valid_facilitatorLabel(address facilitator) 
-    ghostInFacilitatorsMapping[facilitator] <=> GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0 {
+    ghostInFacilitatorsMapping[facilitator] <=> _GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0 {
         preserved {
             requireInvariant facilitatorsList_setInvariant();
             requireInvariant addr_in_set_iff_in_map(facilitator);
@@ -301,12 +301,12 @@ invariant sumAllLevel_eq_sumAllBalance()
 
 // A facilitator with a positive bucket capacity exists in the _facilitators mapping
 invariant inv_valid_capacity(address facilitator)
-    ((GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) > 0) 
+    ((_GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) > 0) 
         => ghostInFacilitatorsMapping[facilitator]);
 
 // A facilitator with a positive bucket level exists in the _facilitators mapping
 invariant inv_valid_level(address facilitator) 
-    ((GhoTokenHelper.getFacilitatorBucketLevel(facilitator) > 0) 
+    ((_GhoTokenHelper.getFacilitatorBucketLevel(facilitator) > 0) 
         => ghostInFacilitatorsMapping[facilitator]) {
         preserved{
             requireInvariant inv_valid_capacity(facilitator);
@@ -320,14 +320,14 @@ rule level_leq_capacity(address facilitator, method f) filtered { f -> !f.isView
 
     assumeInvariants(facilitator);
     requireInvariant inv_valid_capacity(facilitator);
-    require(GhoTokenHelper.getFacilitatorBucketLevel(facilitator) 
-        <= GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)); 
+    require(_GhoTokenHelper.getFacilitatorBucketLevel(facilitator) 
+        <= _GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)); 
     
     f(e, arg);
 
     assert((f.selector != sig:setFacilitatorBucketCapacity(address,uint128).selector)
-        => (GhoTokenHelper.getFacilitatorBucketLevel(facilitator) 
-            <= GhoTokenHelper.getFacilitatorBucketCapacity(facilitator))
+        => (_GhoTokenHelper.getFacilitatorBucketLevel(facilitator) 
+            <= _GhoTokenHelper.getFacilitatorBucketCapacity(facilitator))
     );
 }
 
@@ -341,8 +341,8 @@ rule mint_after_burn(method f) filtered { f -> !f.isView } {
     address account;
 
     assumeInvariants(e.msg.sender);
-    require(GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender) 
-        <= GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender));
+    require(_GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender) 
+        <= _GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender));
     require(amount_mint > 0);
     requireInvariant inv_balanceOf_leq_totalSupply(e.msg.sender);
     requireInvariant inv_valid_capacity(e.msg.sender);
@@ -381,12 +381,12 @@ rule level_unchanged_after_mint_followed_by_burn() {
     uint256 amount;
     address account;
 
-    uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    uint256 levelBefore = _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
 
     mint(e, account, amount);
     burn(e, amount);
     
-    uint256 levelAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    uint256 levelAfter = _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
     
     assert(levelBefore == levelAfter);
 }
@@ -398,11 +398,11 @@ rule level_after_mint() {
     uint256 amount;
     address account;
 
-    uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    uint256 levelBefore = _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
 
     mint(e, account, amount);
 
-    uint256 levelAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    uint256 levelAfter = _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
 
     assert(levelBefore + amount == to_mathint(levelAfter));
 
@@ -414,11 +414,11 @@ rule level_after_burn() {
     calldataarg arg;
     uint256 amount;
 
-    uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    uint256 levelBefore = _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
 
     burn(e, amount);
     
-    uint256 levelAfter = GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    uint256 levelAfter = _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
     
     assert(to_mathint(levelBefore) == levelAfter + amount);
 }
@@ -436,7 +436,7 @@ rule facilitator_in_list_after_setFacilitatorBucketCapacity() {
     assert(inFacilitatorsList(toBytes32(facilitator)));
 }
 
-// [21] GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() 
+// [21] _GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() 
 //  return the assign bucket capacity 
 rule getFacilitatorBucketCapacity_after_setFacilitatorBucketCapacity() {
     env e;
@@ -445,7 +445,7 @@ rule getFacilitatorBucketCapacity_after_setFacilitatorBucketCapacity() {
 
     setFacilitatorBucketCapacity(e, facilitator, newCapacity);
 
-    assert(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) == require_uint256(newCapacity));
+    assert(_GhoTokenHelper.getFacilitatorBucketCapacity(facilitator) == require_uint256(newCapacity));
 }
 
 // [13] Facilitator is valid after successful call to addFacilitator()
@@ -530,8 +530,8 @@ rule mintLimitedByFacilitatorRemainingCapacity() {
     env e;
     uint256 amount;
 
-    mathint diff = GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) 
-        - GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
+    mathint diff = _GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) 
+        - _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender);
     require(to_mathint(amount) > diff);
     
     address user;
@@ -544,11 +544,11 @@ rule mintLimitedByFacilitatorRemainingCapacity() {
 rule burnLimitedByFacilitatorLevel() {
     env e;
 
-    require(GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) 
-        > GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
+    require(_GhoTokenHelper.getFacilitatorBucketCapacity(e.msg.sender) 
+        > _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
 
     uint256 amount;
-    require(amount > GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
+    require(amount > _GhoTokenHelper.getFacilitatorBucketLevel(e.msg.sender));
     burn@withrevert(e, amount);
     
     assert(lastReverted);
@@ -561,8 +561,8 @@ rule addFacilitatorShouldSetLabelAndBucketCapacity(env e, address facilitator, s
     
     addFacilitator(e, facilitator, facilitatorLabel, bucketCapacity);
 
-    assert(facilitatorLabel.length == GhoTokenHelper.getFacilitatorsLabelLen(facilitator));
-    assert(bucketCapacity == assert_uint128(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)));
+    assert(facilitatorLabel.length == _GhoTokenHelper.getFacilitatorsLabelLen(facilitator));
+    assert(bucketCapacity == assert_uint128(_GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)));
 }
 
 // TODO: Sanity fail, the only way to test constructor. Skip it?
@@ -600,7 +600,7 @@ rule mintBurnShouldRevertWhenZeroAmount(env e, address account, uint256 amount) 
 rule onlyFacilitatorManagerCouldModifyFacilitatorList(env e, method f, calldataarg args)
     filtered { f -> !PURE_VIEW_FUNCTIONS(f) } {
     
-    bool isManager = GhoTokenHelper.hasFacilitatorManagerRole(e.msg.sender);
+    bool isManager = _GhoTokenHelper.hasFacilitatorManagerRole(e.msg.sender);
     uint256 listLengthBefore = ghostFacilitatorsListLength;
 
     f(e, args);
@@ -612,17 +612,17 @@ rule onlyFacilitatorManagerCouldModifyFacilitatorList(env e, method f, calldataa
 rule onlyBucketManagerCouldModifyBucketCapacity(env e, method f, calldataarg args, address facilitator)
     filtered { f -> !PURE_VIEW_FUNCTIONS(f) } {
     
-    bool isManager = GhoTokenHelper.hasBacketManagerRole(e.msg.sender);
+    bool isManager = _GhoTokenHelper.hasBacketManagerRole(e.msg.sender);
 
     // Facilitator exists
-    bool facilitatorExistBefore = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+    bool facilitatorExistBefore = _GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
 
-    uint256 bucketCapacityBefore = GhoTokenHelper.getFacilitatorBucketCapacity(facilitator);
+    uint256 bucketCapacityBefore = _GhoTokenHelper.getFacilitatorBucketCapacity(facilitator);
     f(e, args);
-    uint256 bucketCapacityAfter = GhoTokenHelper.getFacilitatorBucketCapacity(facilitator);
+    uint256 bucketCapacityAfter = _GhoTokenHelper.getFacilitatorBucketCapacity(facilitator);
 
     // Facilitator was not removed
-    bool facilitatorExistAfter = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+    bool facilitatorExistAfter = _GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
     bool facilitatorExist = facilitatorExistBefore && facilitatorExistAfter;
 
     // Was modified
@@ -671,7 +671,7 @@ rule facilitatorAddedWithEmptyLabelShouldRevert(env e, address facilitator, stri
 rule onlyExistingFacilitatorCouldBeRemovedOrSetBucketCapacity(address facilitator) {
 
     storage init = lastStorage;
-    bool exist = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+    bool exist = _GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
 
     env e1;
     removeFacilitator@withrevert(e1, facilitator) at init;
@@ -688,7 +688,7 @@ rule onlyExistingFacilitatorCouldBeRemovedOrSetBucketCapacity(address facilitato
 // [18] Only facilitator with zero bucketLevel could be removed
 rule onlyFacilitatorWithZeroBucketLevelCouldBeRemoved(env e, address facilitator) {
 
-    uint256 bucketLevel = GhoTokenHelper.getFacilitatorBucketLevel(facilitator);
+    uint256 bucketLevel = _GhoTokenHelper.getFacilitatorBucketLevel(facilitator);
 
     removeFacilitator(e, facilitator);
 
@@ -698,11 +698,11 @@ rule onlyFacilitatorWithZeroBucketLevelCouldBeRemoved(env e, address facilitator
 // [19] Facilitator's label empty after been removed
 rule removeFacilitatorShouldEmptyLabel(env e, address facilitator) {
 
-    bool existBefore = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+    bool existBefore = _GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
 
     removeFacilitator(e, facilitator);
 
-    bool existAfter = GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
+    bool existAfter = _GhoTokenHelper.getFacilitatorsLabelLen(facilitator) > 0;
 
     assert(existBefore && !existAfter);
 }
@@ -713,13 +713,21 @@ rule gettersIntegrity(address facilitator) {
     assumeInvariants(facilitator);
 
     // getFacilitatorBucket()
-    assert(assert_uint128(GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)) 
+    assert(assert_uint128(_GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)) 
         == ghostBucketCapacity[facilitator]);
-    assert(assert_uint128(GhoTokenHelper.getFacilitatorBucketLevel(facilitator)) 
+    assert(assert_uint128(_GhoTokenHelper.getFacilitatorBucketLevel(facilitator)) 
         == ghostBucketLevels[facilitator]);
 
     // getFacilitatorsList()
-    assert(GhoTokenHelper.getFacilitatorsListLen() == ghostFacilitatorsListLength);
+    assert(_GhoTokenHelper.getFacilitatorsListLen() == ghostFacilitatorsListLength);
+}
+
+// Possibility should not revert
+rule functionsNotRevert(env e, method f, calldataarg args) {
+
+    f@withrevert(e, args);
+    
+    satisfy(!lastReverted);
 }
 
 // TODO: ERC20.sol

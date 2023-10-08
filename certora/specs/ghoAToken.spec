@@ -78,7 +78,7 @@ methods{
     // External calls
     //
 
-    // DummyERC20A, GhoToken
+    // _DummyERC20A, GhoToken
     function _.balanceOf(address) external => DISPATCHER(true);
 
     // GhoToken
@@ -119,6 +119,7 @@ definition ALWAYS_REVERT_FUNCTIONS(method f) returns bool =
     || f.selector == sig:transferOnLiquidation(address, address, uint256).selector
     || f.selector == sig:transfer(address, uint256).selector
     || f.selector == sig:transferFrom(address, address, uint256).selector
+    || f.selector == sig:permit(address, address, uint256, uint256, uint8, bytes32, bytes32).selector
     ;
 
 definition INITIALIZE_FUNCTION(method f) returns bool = 
@@ -127,8 +128,18 @@ definition INITIALIZE_FUNCTION(method f) returns bool =
 definition HANDLE_REPAYMENT_FUNCTION(method f) returns bool = 
     f.selector == sig:handleRepayment(address, address, uint256).selector;
 
-definition DISTRIBUTE_FEES_TO_TREASUTY(method f) returns bool = 
+definition DISTRIBUTE_FEES_TO_TREASUTY_FUNCTION(method f) returns bool = 
     f.selector == sig:distributeFeesToTreasury().selector;
+
+definition BURN_USE_FUNCTION(method f) returns bool = 
+    f.selector == sig:transferUnderlyingTo(address, uint256).selector;
+
+definition MINT_USE_FUNCTION(method f) returns bool = 
+    f.selector == sig:handleRepayment(address, address, uint256).selector;
+
+definition BURN_MINT_USE_FUNCTIONS(method f) returns bool = 
+    BURN_USE_FUNCTION(f) || MINT_USE_FUNCTION(f);
+
 
 ////////////////// FUNCTIONS //////////////////////
 
@@ -371,8 +382,8 @@ rule transferUnderlyingToCantExceedCapacity() {
     address target;
     uint256 amount;
     env e;
-    mathint facilitatorLevel = GhoTokenHelper.getFacilitatorBucketLevel(currentContract);
-    mathint facilitatorCapacity = GhoTokenHelper.getFacilitatorBucketCapacity(currentContract);
+    mathint facilitatorLevel = _GhoTokenHelper.getFacilitatorBucketLevel(currentContract);
+    mathint facilitatorCapacity = _GhoTokenHelper.getFacilitatorBucketCapacity(currentContract);
     
     transferUnderlyingTo@withrevert(e, target, amount);
     
@@ -403,10 +414,10 @@ rule integrityTransferUnderlyingToWithHandleRepayment() {
     address user;
     address onBehalfOf;
 
-    uint256 levelBefore = GhoTokenHelper.getFacilitatorBucketLevel(currentContract);
+    uint256 levelBefore = _GhoTokenHelper.getFacilitatorBucketLevel(currentContract);
     transferUnderlyingTo(e, target, amount);
     handleRepayment(e, user, onBehalfOf, amount);
-    uint256 levelAfter = GhoTokenHelper.getFacilitatorBucketLevel(currentContract);
+    uint256 levelAfter = _GhoTokenHelper.getFacilitatorBucketLevel(currentContract);
 
     assert(levelBefore <= levelAfter);
 }
@@ -486,12 +497,12 @@ rule initializeSetInitialParamsCorrectly(
         && aTokenDecimals == decimals()
         && DOMAIN_SEPARATOR(e) == calculateDomainSeparator(e)
         // TODO: check with --hashing_length_bound --optimistic_hashing for keccak256 support
-        // && GhoTokenHelper.compareStrings(aTokenName, name(e))
-        // && GhoTokenHelper.compareStrings(aTokenSymbol, symbol())
+        // && _GhoTokenHelper.compareStrings(aTokenName, name(e))
+        // && _GhoTokenHelper.compareStrings(aTokenSymbol, symbol())
     );
 }
 
-// [5] Specific functions always revefrts
+// [5] Specific functions always reverts
 rule specificFunctionsAlwaysRevert(env e, method f, calldataarg args) 
     filtered { f -> ALWAYS_REVERT_FUNCTIONS(f) } {
 
@@ -509,8 +520,8 @@ rule viewersIntegrity(env e) {
         && getGhoTreasury() == ghostGhoTreasury
         // TODO: check with --hashing_length_bound --optimistic_hashing for keccak256 support
         // && DOMAIN_SEPARATOR(e) == ghostDomainSeparator
-        // && GhoTokenHelper.compareStrings(NAME_SYMBOL_STR(), name(e))
-        // && GhoTokenHelper.compareStrings(NAME_SYMBOL_STR(), symbol())
+        // && _GhoTokenHelper.compareStrings(NAME_SYMBOL_STR(), name(e))
+        // && _GhoTokenHelper.compareStrings(NAME_SYMBOL_STR(), symbol())
         && decimals() == ghostDecimals
         && getIncentivesController() == ghostIncentivesController
         // TODO: prove scaledBalanceOf, getScaledUserBalanceAndSupply, scaledTotalSupply, getPreviousIndex
@@ -549,16 +560,12 @@ rule variableDebtTokenSetOnlyOnce(env e, method f, calldataarg args)
     assert(!lastReverted => before == ghostGhoVariableDebtToken);
 }
 
-// [6] VariableDebtToken could not be set to zero (expect in `initialize()`)
-rule variableDebtTokenNotSetToZero(env e, method f, calldataarg args) 
-    filtered { f -> !VIEW_FUNCTIONS(f) && !INITIALIZE_FUNCTION(f) } {
+// [6] VariableDebtToken could not be set to zero
+rule variableDebtTokenNotSetToZero(env e, address ghoVariableDebtToken) {
 
-    address before = ghostGhoVariableDebtToken; 
-    require(before == 0);
+    setVariableDebtToken(e, ghoVariableDebtToken);
 
-    f@withrevert(e, args);
-
-    assert(!lastReverted => before != ghostGhoVariableDebtToken);
+    assert(ghostGhoVariableDebtToken != 0);
 }
 
 // [9] Treasury could not be set to zero (expect in `initialize()`)
@@ -708,7 +715,7 @@ hook CALL(uint g, address addr, uint value, uint argsOffset, uint argsLength, ui
 }
 
 rule onlyPoolCanInitializeCommunicationWithGHOToken(env e, method f, calldataarg args) 
-    filtered { f -> !DISTRIBUTE_FEES_TO_TREASUTY(f) && !VIEW_FUNCTIONS(f) } {
+    filtered { f -> !DISTRIBUTE_FEES_TO_TREASUTY_FUNCTION(f) && !VIEW_FUNCTIONS(f) } {
 
     require(ghoTokenCalled == false);
 
@@ -717,5 +724,75 @@ rule onlyPoolCanInitializeCommunicationWithGHOToken(env e, method f, calldataarg
     assert(!lastReverted && ghoTokenCalled => e.msg.sender == getPoolAddress());
 }
 
-// TODO: transferUnderlyingTo
-// TODO: handleRepayment
+// [18,19] Possibility of change current contract's bucketLevel with mint and burn
+rule possibilityOfBurnMintChangeBucketLevel(env e, method f, calldataarg args) 
+    filtered { f -> BURN_MINT_USE_FUNCTIONS(f) } {
+
+    require(e.msg.sender == getPoolAddress());
+
+    uint256 bucketLevelBefore = _GhoTokenHelper.getFacilitatorBucketLevel(e, currentContract);
+    require(bucketLevelBefore != 0);
+
+    uint256 bucketCapacityBefore = _GhoTokenHelper.getFacilitatorBucketCapacity(e, currentContract);
+    require(bucketCapacityBefore > bucketLevelBefore);
+
+    f(e, args);
+    
+    uint256 bucketLevelAfter = _GhoTokenHelper.getFacilitatorBucketLevel(e, currentContract);
+
+    satisfy(bucketLevelAfter != bucketLevelBefore);
+}
+
+// [20] Only bucketLevel of current contract could be changed
+rule noAnotherUserBucketLevelCouldBeChanged(env e, method f, calldataarg args, address anotherUser) 
+    filtered { f -> !VIEW_FUNCTIONS(f) } {
+
+    require(anotherUser != currentContract);
+
+    uint256 bucketLevelBefore = _GhoTokenHelper.getFacilitatorBucketLevel(e, anotherUser);
+
+    f@withrevert(e, args);
+    bool reverted = lastReverted;
+
+    uint256 bucketLevelBeforeAfter = _GhoTokenHelper.getFacilitatorBucketLevel(e, anotherUser);
+
+    assert(!reverted => bucketLevelBefore == bucketLevelBeforeAfter);
+}
+
+// TODO: bug21 bot caught
+// [1, 21-26] handleRepayment() should burn anything more than balance from interest
+rule handleRepaymentBurnAnythingMoreBalanceFromInterest(
+    env e, address user, address onBehalfOf, uint256 amount
+    ) {
+    
+    setUp();
+
+    uint256 bucketLevelBefore = _GhoTokenHelper.getFacilitatorBucketLevel(e, currentContract);
+    require(bucketLevelBefore != 0);
+
+    uint256 bucketCapacityBefore = _GhoTokenHelper.getFacilitatorBucketCapacity(e, currentContract);
+    require(bucketCapacityBefore > bucketLevelBefore);
+
+    uint256 balanceFromInterestBefore = _GhoVariableDebtTokenHarness.getUserAccumulatedDebtInterest(e, onBehalfOf);
+
+    handleRepayment(e, user, onBehalfOf, amount);
+
+    uint256 bucketLevelAfter = _GhoTokenHelper.getFacilitatorBucketLevel(e, currentContract);
+    uint256 balanceFromInterestAfter = _GhoVariableDebtTokenHarness.getUserAccumulatedDebtInterest(e, onBehalfOf);
+
+    assert(amount > balanceFromInterestBefore 
+        ? assert_uint256(bucketLevelBefore - bucketLevelAfter) == assert_uint256(amount - balanceFromInterestBefore)
+            && balanceFromInterestAfter == 0
+        : bucketLevelBefore == bucketLevelAfter 
+            && balanceFromInterestAfter == assert_uint256(balanceFromInterestBefore - amount)
+    );
+}
+
+// Possibility should not revert
+rule functionsNotRevert(env e, method f, calldataarg args) 
+    filtered { f -> !ALWAYS_REVERT_FUNCTIONS(f) } {
+
+    f@withrevert(e, args);
+    
+    satisfy(!lastReverted);
+}

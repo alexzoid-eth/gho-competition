@@ -1,0 +1,3 @@
+rule test() {
+    assert(true);
+}
