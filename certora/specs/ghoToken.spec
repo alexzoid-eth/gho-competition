@@ -566,7 +566,6 @@ rule addFacilitatorShouldSetLabelAndBucketCapacity(env e, address facilitator, s
 }
 
 // TODO: Sanity fail, the only way to test constructor. Skip it?
-/*
 // [2] Prove that `DEFAULT_ADMIN_ROLE` setup in constructor
 invariant adminRoleSetupInConstructor() adminRoleSetup == true {
     preserved {
@@ -580,7 +579,6 @@ invariant erc20SetupInConstructor() nameLength > 0 && symbolLength > 0 {
         require(false);
     }
 }
-*/
 
 // [4] Mint and burn revert when amount is zero
 rule mintBurnShouldRevertWhenZeroAmount(env e, address account, uint256 amount) {

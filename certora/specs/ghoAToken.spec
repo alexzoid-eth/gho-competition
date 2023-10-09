@@ -16,7 +16,8 @@ methods{
     function getPoolAddress() external returns (address) envfree;
     function calculateDomainSeparator() external returns (bytes32);
     function isPoolAdmin(address account) external returns (bool);
-    function setAnotherName() external envfree;
+    function setName1() external envfree;
+    function setName2() external envfree;
 
     // GhoAToken
     function initialize(address initializingPool, address treasury, address underlyingAsset, 
@@ -286,10 +287,10 @@ hook Sstore currentContract._incentivesController address val STORAGE {
 //
 // Ghost copy of `_domainSeparator`
 //
-// TODO: uncommenting this block leads to unexpected errors in Prover
+// Uncommenting this block leads to unexpected errors in Prover
 // uncommented: https://prover.certora.com/output/52567/3fce257bd5bd447db7f25eb12b961f05/?anonymousKey=001f36a371acf2f144e09f729eee9da2ac9878e4
 // commented: https://prover.certora.com/output/52567/1e25deaa8cd148bc88fcb323adeef0db/?anonymousKey=38ada586409811a6877cbfc14a8d5f7f3251bbaf
-/*
+// discord issue: https://discord.com/channels/795999272293236746/1160743011735580712
 ghost bytes32 ghostDomainSeparator {
     init_state axiom ghostDomainSeparator == to_bytes32(0);
 }
@@ -297,7 +298,7 @@ ghost bytes32 ghostDomainSeparator {
 hook Sload bytes32 val currentContract._domainSeparator STORAGE {
     require(ghostDomainSeparator == val);
 }
-
+/*
 hook Sstore currentContract._domainSeparator bytes32 val STORAGE {
     ghostDomainSeparator = val;
 }
@@ -351,6 +352,15 @@ hook Sstore currentContract._decimals uint8 val STORAGE {
     ghostDecimals = val;
 }
 
+//
+// Check if GHO token was touched
+//
+
+ghost bool ghoTokenCalled;
+
+hook CALL(uint g, address addr, uint value, uint argsOffset, uint argsLength, uint retOffset, uint retLength) uint rc {
+    ghoTokenCalled = addr == ghostUnderlyingAsset ? true : ghoTokenCalled;
+}
 
 ///////////////// PROPERTIES //////////////////////
 
@@ -424,21 +434,18 @@ rule integrityTransferUnderlyingToWithHandleRepayment() {
 
 ///////////////// ADDED PROPERTIES //////////////////////
 
-// TODO: Sanity fail, the only way to test constructor. Skip it?
 // Prove that POOL, _addressesProvider, 
 //  ERC20 setup correctly in constructor
-/*
 invariant initialSetupInConstructor() 
     ghostNameLength > 0 && ghostSymbolLength > 0 
     // TODO: add ghostPool set check
     // TODO: seems that addressesProviderSummarize() is not executed
-    // && ghostAddressesProvider == ADDRESSES_PROVIDER_ADDRESS() {
+    // && ghostAddressesProvider == ADDRESSES_PROVIDER_ADDRESS()
 {
     preserved {
         require(false);
     }
 }
-*/
 
 // [2] Initialize could be executed once
 rule initializeCouldBeExecutedOnce(env e1, calldataarg args1, env e2, calldataarg args2) {
@@ -475,7 +482,7 @@ rule initializedWithSpecificPoolAddressOnly(
     assert(initializingPool != getPoolAddress() => reverted);
 }
 
-// [4] Initialize set initial params correctly
+// [4,27] Initialize set initial params correctly
 rule initializeSetInitialParamsCorrectly(
     env e, 
     address initializingPool, 
@@ -487,18 +494,27 @@ rule initializeSetInitialParamsCorrectly(
     string aTokenSymbol, 
     bytes params
 ) {
+    require(aTokenName.length < 16);
+    require(aTokenSymbol.length < 16);
+
     initialize(e, initializingPool, treasury, underlyingAsset, incentivesController, 
         aTokenDecimals, aTokenName, aTokenSymbol, params);
+
+    string n = name(e);
+    string s = symbol();
+    uint256 ni;
+    require(ni < n.length && ni < aTokenName.length);
+    uint256 si;
+    require(si < s.length && si < aTokenSymbol.length);
 
     assert(
         treasury == RESERVE_TREASURY_ADDRESS()
         && underlyingAsset == UNDERLYING_ASSET_ADDRESS()
         && incentivesController == getIncentivesController()
         && aTokenDecimals == decimals()
+        && aTokenName.length == n.length
+        && aTokenSymbol.length == s.length
         && DOMAIN_SEPARATOR(e) == calculateDomainSeparator(e)
-        // TODO: check with --hashing_length_bound --optimistic_hashing for keccak256 support
-        // && _GhoTokenHelper.compareStrings(aTokenName, name(e))
-        // && _GhoTokenHelper.compareStrings(aTokenSymbol, symbol())
     );
 }
 
@@ -513,18 +529,18 @@ rule specificFunctionsAlwaysRevert(env e, method f, calldataarg args)
 
 // Viewers integrity
 rule viewersIntegrity(env e) {
+
+    calculateDomainSeparator(e);
+
     assert(
         RESERVE_TREASURY_ADDRESS() == ghostTreasury
         && UNDERLYING_ASSET_ADDRESS() == ghostUnderlyingAsset
         && getVariableDebtToken() == ghostGhoVariableDebtToken
         && getGhoTreasury() == ghostGhoTreasury
-        // TODO: check with --hashing_length_bound --optimistic_hashing for keccak256 support
-        // && DOMAIN_SEPARATOR(e) == ghostDomainSeparator
-        // && _GhoTokenHelper.compareStrings(NAME_SYMBOL_STR(), name(e))
-        // && _GhoTokenHelper.compareStrings(NAME_SYMBOL_STR(), symbol())
+        // && DOMAIN_SEPARATOR(e) == ghostDomainSeparator // Issue with hooking Sstore _domainSeparator
         && decimals() == ghostDecimals
         && getIncentivesController() == ghostIncentivesController
-        // TODO: prove scaledBalanceOf, getScaledUserBalanceAndSupply, scaledTotalSupply, getPreviousIndex
+        // TODO: scaledBalanceOf, getScaledUserBalanceAndSupply, scaledTotalSupply, getPreviousIndex
     );
 }
 
@@ -693,27 +709,19 @@ rule possibilityOfTransferOutGhoTokensToTresaury(env e) {
     );
 }
 
-// TODO: violated (keccak256 support needed)
 // [16] Domain separator depends on token name
-/*
 rule domainSeparatorDepensOnName(env e) {
-
+    
+    setName1();
     bytes32 separator1 = calculateDomainSeparator(e);
 
-    setAnotherName();
+    setName2();
     bytes32 separator2 = calculateDomainSeparator(e);
 
     assert(separator1 != separator2);
 }
-*/
 
 // [17] Only Pool could initialize a communication with GhoToken contract (distributeFeesToTreasury() is an exception)
-
-ghost bool ghoTokenCalled;
-hook CALL(uint g, address addr, uint value, uint argsOffset, uint argsLength, uint retOffset, uint retLength) uint rc {
-    ghoTokenCalled = addr == ghostUnderlyingAsset ? true : ghoTokenCalled;
-}
-
 rule onlyPoolCanInitializeCommunicationWithGHOToken(env e, method f, calldataarg args) 
     filtered { f -> !DISTRIBUTE_FEES_TO_TREASUTY_FUNCTION(f) && !VIEW_FUNCTIONS(f) } {
 
@@ -759,11 +767,23 @@ rule noAnotherUserBucketLevelCouldBeChanged(env e, method f, calldataarg args, a
     assert(!reverted => bucketLevelBefore == bucketLevelBeforeAfter);
 }
 
-// TODO: bug21 bot caught
-// [1, 21-26] handleRepayment() should burn anything more than balance from interest
+// [21] Possibility of decrease whole balance of sGHO tokens
+rule possibilityDecreaseWholeBalance(env e, address user, address onBehalfOf, uint256 amount) {
+    
+    setUp();
+
+    uint256 balance = _GhoVariableDebtTokenHarness.getUserAccumulatedDebtInterest(e, onBehalfOf);
+    require(balance == amount);
+
+    handleRepayment@withrevert(e, user, onBehalfOf, amount);
+
+    satisfy(!lastReverted);
+}
+
+// [1, 22-26] handleRepayment() should burn anything more than balance from interest
 rule handleRepaymentBurnAnythingMoreBalanceFromInterest(
     env e, address user, address onBehalfOf, uint256 amount
-    ) {
+) {
     
     setUp();
 

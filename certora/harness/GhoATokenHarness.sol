@@ -24,8 +24,13 @@ contract GhoATokenHarness is GhoAToken {
     return aclManager.isPoolAdmin(account);
   }
 
-  function setAnotherName() external {
-    string memory anotherName = 'anotherName';
+  function setName1() external {
+    string memory anotherName = 'name1';
+    _setName(anotherName);
+  }
+
+  function setName2() external {
+    string memory anotherName = 'name2';
     _setName(anotherName);
   }
 }
