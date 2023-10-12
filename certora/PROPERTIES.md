@@ -1,3 +1,76 @@
+# GhoVariableDebtToken
+
+## High-Level
+
+- `debtTokenIsNotTransferable`
+  - Proves that debt tokens aren't transferable
+- `integrityOfMint_userIsolation`
+  - Proves that mint can't effect other user's scaled balance
+- `integrityOfBurn_userIsolation`
+  - Proves that burn can't effect other user's scaled balance
+- `integrityOfUpdateDiscountDistribution_userIsolation`
+  - Proves that updateDiscountDistribution can't effect other user's scaled balance
+- `integrityOfRebalanceUserDiscountPercent_userIsolation`
+  - Proves that rebalanceUserDiscountPercent can't effect other user's scaled balance
+
+## Valid States
+
+- `discountCantExceed100Percent`
+  - At any point in time, the user's discount rate isn't larger than 100%
+- `integrityOfBalanceOf_fullDiscount`
+  - Proves that a user with 100% discounts has a fixed balance over time
+- `integrityOfBalanceOf_noDiscount`
+  - Proves that a user's balance, with no discount, is equal to rayMul(scaledBalance, current index)
+- `integrityOfBalanceOf_zeroScaledBalance`
+  - Proves the a user with zero scaled balance has a zero balance
+
+## State Transitions
+
+- `nonMintFunctionCantIncreaseBalance`
+  - Proves that the user's balance of debt token can't increase by calling any external non-mint function.
+- `nonMintFunctionCantIncreaseScaledBalance`
+  - Proves that a call to a non-mint operation won't increase the user's balance of the actual debt tokens (i.e. it's scaled balance)
+- `onlyCertainFunctionsCanModifyScaledBalance`
+  - Proves that only burn/mint/rebalanceUserDiscountPercent/updateDiscountDistribution can modify user's scaled balance
+- `userAccumulatedDebtInterestWontDecrease`
+  - Proves that only a call to decreaseBalanceFromInterest will decrease the user's accumulated interest listing
+- `userCantNullifyItsDebt`
+  - Proves that a user can't nullify its debt without calling burn
+- `onlyMintForUserCanIncreaseUsersBalance`
+  - Proves that when calling mint, the user's balance will increase if the call is made on bahalf of the user
+- `integrityOfBurn_fullRepay_concrete`
+  - Proves a concrete case of repaying the full debt that ends with a zero balance
+
+## Variable Transitions
+
+- `integrityOfMint_updateIndex`
+  - Proves the after calling mint, the user's state is updated with the recent index value
+- `integrityOfBurn_updateIndex`
+  - Proves the after calling burn, the user's state is updated with the recent index value
+- `integrityOfMint_updateDiscountRate`
+  - Proves that after calling mint, the user's discount rate is up to date
+- `integrityOfBurn_updateDiscountRate`
+  - Proves that after calling burn, the user's discount rate is up to date
+
+## Unit Tests
+
+- `disallowedFunctionalities`
+  - Ensuring that the defined disallowed functions revert in any case (from VariableDebtToken.spec)
+- `integrityOfMint_updateScaledBalance_fixedIndex`
+  - Proves that on a fixed index calling mint(user, amount) will increase the user's scaled balance by amount
+- `integrityMint_atoken`
+  - Checking atoken alone (from VariableDebtToken.spec)
+- `burnZeroDoesntChangeBalance`
+  - Proves that calling burn with 0 amount doesn't change the user's balance (from VariableDebtToken.spec)
+- `integrityOfUpdateDiscountDistribution_updateIndex`
+  - Proves the after calling updateDiscountDistribution, the user's state is updated with the recent index value
+- `integrityOfRebalanceUserDiscountPercent_updateDiscountRate`
+  - Proves that after calling rebalanceUserDiscountPercent, the user's discount rate is up to date
+- `integrityOfRebalanceUserDiscountPercent_updateIndex`
+  - Proves that after calling rebalanceUserDiscountPercent, the user's state is updated with the recent index value
+- `burnAllDebtReturnsZeroDebt`
+  - Proves the balance will be zero when burn whole dept
+
 # GhoAToken
 
 ## High-Level

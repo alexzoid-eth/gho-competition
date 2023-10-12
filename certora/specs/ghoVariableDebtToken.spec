@@ -1,43 +1,89 @@
-using GhoDiscountRateStrategy as discStrategy;
-using DummyERC20WithTimedBalanceOf as discountToken;
-using DummyPool as pool;
+import "./methods/GhoTokenHelperMethods.spec";
+import "./methods/ScaledBalanceTokenBaseMethods.spec";
+import "./methods/EIP712BaseMethods.spec";
+
+using GhoDiscountRateStrategy as _GhoDiscountRateStrategy;
+using DummyERC20WithTimedBalanceOf as _DummyERC20WithTimedBalanceOf;
+using DummyPool as _DummyPool;
 
 ///////////////// METHODS //////////////////////
 
 methods{
     
+    //
+    // Current contract
+    //
+
+    // GhoVariableDebtTokenHarness
+    function getUserCurrentIndex(address user) external returns (uint256) envfree;
+    function getUserDiscountRate(address user) external returns (uint256) envfree;
+    function getUserAccumulatedDebtInterest(address user) external returns (uint256) envfree;
+    function scaledBalanceOfToBalanceOf(uint256 bal) internal returns (uint256);
+    function getBalanceOfDiscountToken(address user) external returns (uint256);
+    function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
+    function rayDiv(uint256 x, uint256 y) external returns (uint256) envfree;
+
+    // GhoVariableDebtToken
+    function initialize(address initializingPool, address underlyingAsset, address incentivesController,
+        uint8 debtTokenDecimals, string calldata debtTokenName, string calldata debtTokenSymbol,
+        bytes calldata params) external;
+    function getRevision() internal returns (uint256);
+    function balanceOf(address user) internal returns (uint256);
+    function mint(address user, address onBehalfOf, uint256 amount, uint256 index) external returns (bool, uint256);
+    function burn(address from, uint256 amount, uint256 index) external returns (uint256);
+    function totalSupply() internal returns (uint256);
+    function _EIP712BaseId() internal returns (string memory);
+    function transfer(address, uint256) external returns (bool) envfree;
+    function allowance(address, address) external returns (uint256) envfree;
+    function approve(address, uint256) external returns (bool) envfree;
+    function transferFrom(address, address, uint256) external returns (bool) envfree;
+    function increaseAllowance(address, uint256) external returns (bool) envfree;
+    function decreaseAllowance(address, uint256) external returns (bool) envfree;
+    function UNDERLYING_ASSET_ADDRESS() external returns (address) envfree;
+    function setAToken(address ghoAToken) external;
+    function getAToken() external returns (address) envfree;
+    function updateDiscountRateStrategy(address newDiscountRateStrategy) external;
+    function getDiscountRateStrategy() external returns (address) envfree;
+    function updateDiscountToken(address newDiscountToken) external;
+    function getDiscountToken() external returns (address);
+    function updateDiscountDistribution(address sender, address recipient, uint256 senderDiscountTokenBalance, 
+        uint256 recipientDiscountTokenBalance, uint256 amount) external;
+    function getDiscountPercent(address user) external returns (uint256) envfree;
+    function getBalanceFromInterest(address user) external returns (uint256) envfree;
+    function decreaseBalanceFromInterest(address user, uint256 amount) external;
+    function rebalanceUserDiscountPercent(address user) external;
+    function _mintScaled(address caller, address onBehalfOf, uint256 amount, uint256 index) internal returns (bool);
+    function _burnScaled(address user, address target, uint256 amount, uint256 index) internal;
+    function _accrueDebtOnAction(address user, uint256 previousScaledBalance, 
+        uint256 discountPercent, uint256 index) internal returns (uint256, uint256);
+    function _refreshDiscountPercent(address user, uint256 balance, uint256 discountTokenBalance, 
+        uint256 previousDiscountPercent) internal;
+
+    //
+    // External calls
+    //
+
+    // DummyERC20WithTimedBalanceOf (linked to _discountToken) represent a random balance per block 
+    function _DummyERC20WithTimedBalanceOf.balanceOf(address user) external returns (uint256) with (env e) 
+        => balanceOfDiscountTokenAtTimestamp(user, e.block.timestamp) ;
+
+    // DummyPool (linked to POOL)
+    // represent a random index per block
+    function _DummyPool.getReserveNormalizedVariableDebt(address asset) external returns (uint256) with (env e) 
+        => indexAtTimestamp(e.block.timestamp);
+
+    // GhoDiscountRateStrategy
+    function _GhoDiscountRateStrategy.calculateDiscountRate(uint256, uint256) external returns (uint256) envfree;
+
     // PoolAddressesProvider
     function _.getACLManager() external => CONSTANT;
 
     // ACLManager
     function _.isPoolAdmin(address) external => CONSTANT;
 
-    // DummyERC20WithTimedBalanceOf.sol (linked to _discountToken)
-    // represent a random balance per block 
-    function discountToken.balanceOf(address user) external returns (uint256) with (env e) => balanceOfDiscountTokenAtTimestamp(user, e.block.timestamp) ;
-
-    // DummyPool.sol (linked to POOL)
-    // represent a random index per block
-    function pool.getReserveNormalizedVariableDebt(address asset) external returns (uint256) with (env e) => indexAtTimestamp(e.block.timestamp);
-
-    // GhoVariableDebtTokenHarness.sol
-    function discStrategy.calculateDiscountRate(uint256, uint256) external returns (uint256) envfree;
-
-    // GhoVariableDebtTokenHarness.sol
-    function getUserCurrentIndex(address) external returns (uint256) envfree;
-    function getUserDiscountRate(address) external returns (uint256) envfree;
-    function getUserAccumulatedDebtInterest(address) external returns (uint256) envfree;
-    function getBalanceOfDiscountToken(address) external returns (uint256);
-
-    // GhoVariableDebtToken.sol
-    function totalSupply() external returns(uint256) envfree;
-    function balanceOf(address) external returns (uint256);
-    function mint(address, address, uint256, uint256) external returns (bool, uint256);
-    function burn(address ,uint256 ,uint256) external returns (uint256);
-    function scaledBalanceOf(address) external returns (uint256) envfree;
-    function getBalanceFromInterest(address) external returns (uint256) envfree;
-    function rebalanceUserDiscountPercent(address) external;
-    function updateDiscountDistribution(address ,address ,uint256 ,uint256 ,uint256) external;
+    // Possible optimization
+    function _.rayMul(uint256 a, uint256 b) external => rayMulUint256(a, b) expect uint256 ALL;
+    function _.rayDiv(uint256 a, uint256 b) external => rayDivUint256(a, b) expect uint256 ALL;
 }
 
 ///////////////// DEFINITIONS /////////////////////
@@ -46,14 +92,41 @@ methods{
 definition MAX_DISCOUNT() returns uint256 = 10000; 
 definition ray() returns uint256 = 1000000000000000000000000000; // 10^27
 definition disAllowedFunctions(method f) returns bool = 
-            f.selector == sig:transfer(address, uint256).selector ||
-            f.selector == sig:allowance(address, address).selector ||
-            f.selector == sig:approve(address, uint256).selector ||
-            f.selector == sig:transferFrom(address, address, uint256).selector ||
-            f.selector == sig:increaseAllowance(address, uint256).selector ||
-            f.selector == sig:decreaseAllowance(address, uint256).selector;
+    f.selector == sig:transfer(address, uint256).selector ||
+    f.selector == sig:allowance(address, address).selector ||
+    f.selector == sig:approve(address, uint256).selector ||
+    f.selector == sig:transferFrom(address, address, uint256).selector ||
+    f.selector == sig:increaseAllowance(address, uint256).selector ||
+    f.selector == sig:decreaseAllowance(address, uint256).selector;
+
+definition VIEW_FUNCTIONS(method f) returns bool = f.isView || f.isPure;
+
+definition HARNESS_FUNCTIONS(method f) returns bool = 
+    f.selector == sig:getUserCurrentIndex(address).selector
+    || f.selector == sig:getUserDiscountRate(address).selector
+    || f.selector == sig:getUserAccumulatedDebtInterest(address).selector
+    || f.selector == sig:scaledBalanceOfToBalanceOf(uint256).selector
+    || f.selector == sig:getBalanceOfDiscountToken(address).selector
+    || f.selector == sig:rayMul(uint256, uint256).selector
+    || f.selector == sig:rayDiv(uint256, uint256).selector
+    ;
+
+definition EXCLUDED_FUNCTIONS(method f) returns bool = 
+    disAllowedFunctions(f) || HARNESS_FUNCTIONS(f) || VIEW_FUNCTIONS(f);
 
 ////////////////// FUNCTIONS //////////////////////
+
+function setUp() {
+
+    // TODO: Cannot make work dynamically linking, several rules are violated
+    // Don't statically link variables that could be changed externally
+
+    // "GhoVariableDebtTokenHarness:_discountToken=DummyERC20WithTimedBalanceOf"
+    // require(ghostDiscountToken == _DummyERC20WithTimedBalanceOf);
+
+    // "GhoVariableDebtTokenHarness:_discountRateStrategy=GhoDiscountRateStrategy"
+    // require(ghostDiscountRateStrategy == _GhoDiscountRateStrategy);
+}
 
 //
 // CVL implementation of rayMul
@@ -67,9 +140,17 @@ function rayDivCVL(uint256 a, uint256 b) returns mathint {
     return ((a * ray() + (b / 2)) / b);
 }
 
+function rayMulUint256(uint256 a, uint256 b) returns uint256 {
+    return require_uint256((a * b + (ray() / 2)) / ray());
+}
+
+function rayDivUint256(uint256 a, uint256 b) returns uint256 {
+    return require_uint256((a * ray() + (b / 2)) / b);
+}
+
 // Query index_ghost for the index value at the input timestamp
 function indexAtTimestamp(uint256 timestamp) returns uint256 {
-    require index_ghost[timestamp] >= ray();
+    require(index_ghost[timestamp] >= ray());
     return index_ghost[timestamp];
     // return 1001684385021630839436707910;//index_ghost[timestamp];
 }
@@ -89,33 +170,176 @@ function envAtTimestamp(uint256 ts) returns env {
 ///////////////// GHOSTS & HOOKS //////////////////
 
 //todo: check balanceof after mint (stable index), burn after balanceof
-
 ghost mapping(address => mapping (uint256 => uint256)) discount_ghost;
 ghost mapping(uint256 => uint256) index_ghost;
+
+//
+// Ghost copy of `_ghoAToken`
+//
+
+ghost address ghostGhoAToken {
+    init_state axiom ghostGhoAToken == 0;
+}
+
+hook Sload address val currentContract._ghoAToken STORAGE {
+    require(ghostGhoAToken == val);
+}
+
+hook Sstore currentContract._ghoAToken address val STORAGE {
+    ghostGhoAToken = val;
+}
+
+//
+// Ghost copy of `_discountToken`
+//
+
+ghost address ghostDiscountToken {
+    init_state axiom ghostDiscountToken == 0;
+}
+
+hook Sload address val currentContract._discountToken STORAGE {
+    require(ghostDiscountToken == val);
+}
+
+hook Sstore currentContract._discountToken address val STORAGE {
+    ghostDiscountToken = val;
+}
+
+//
+// Ghost copy of `_discountRateStrategy`
+//
+
+ghost address ghostDiscountRateStrategy {
+    init_state axiom ghostDiscountRateStrategy == 0;
+}
+
+hook Sload address val currentContract._discountRateStrategy STORAGE {
+    require(ghostDiscountRateStrategy == val);
+}
+
+hook Sstore currentContract._discountRateStrategy address val STORAGE {
+    ghostDiscountRateStrategy = val;
+}
+
+//
+// Ghost copy of `mapping(address => GhoUserState.accumulatedDebtInterest)`
+//
+
+ghost mapping (address => uint128) ghostAccumulatedDebtInterest {
+    init_state axiom forall address i. ghostAccumulatedDebtInterest[i] == 0;
+}
+
+hook Sload uint128 val currentContract._ghoUserState[KEY address i].(offset 0) STORAGE {
+    require(ghostAccumulatedDebtInterest[i] == val);
+}
+
+hook Sstore currentContract._ghoUserState[KEY address i].(offset 0) uint128 val STORAGE {
+    ghostAccumulatedDebtInterest[i] = val;
+}
+
+//
+// Ghost copy of `mapping(address => GhoUserState.discountPercent)`
+//
+
+ghost mapping (address => uint16) ghostDiscountPercent {
+    init_state axiom forall address i. ghostDiscountPercent[i] == 0;
+}
+
+hook Sload uint16 val currentContract._ghoUserState[KEY address i].(offset 16) STORAGE {
+    require(ghostDiscountPercent[i] == val);
+}
+
+hook Sstore currentContract._ghoUserState[KEY address i].(offset 16) uint16 val STORAGE {
+    ghostDiscountPercent[i] = val;
+}
+
+//
+// Ghost copy of `mapping(address => mapping(address => uint256)) _borrowAllowances`
+//
+
+ghost mapping(address => mapping(address => uint256)) ghostBorrowAllowances {
+    init_state axiom forall address key. forall address val. ghostBorrowAllowances[key][val] == 0;
+}
+
+hook Sstore currentContract._borrowAllowances[KEY address key][KEY address val] uint256 amount STORAGE {
+    ghostBorrowAllowances[key][val] = amount;
+}
+
+hook Sload uint256 amount currentContract._borrowAllowances[KEY address key][KEY address val] STORAGE {
+    require(ghostBorrowAllowances[key][val] == amount);
+}
+
+//
+// Ghost copy of `_underlyingAsset`
+//
+
+ghost address ghostUnderlyingAsset {
+    init_state axiom ghostUnderlyingAsset == 0;
+}
+
+hook Sload address val currentContract._underlyingAsset STORAGE {
+    require(ghostUnderlyingAsset == val);
+}
+
+hook Sstore currentContract._underlyingAsset address val STORAGE {
+    ghostUnderlyingAsset = val;
+}
+
+//
+// Ghost copy of `mapping(address => UserState.balance)`
+//
+
+ghost mapping (address => uint128) ghostUserStateBalance {
+    init_state axiom forall address i. ghostUserStateBalance[i] == 0;
+}
+
+hook Sload uint128 val currentContract._userState[KEY address i].(offset 0) STORAGE {
+    require(ghostUserStateBalance[i] == val);
+}
+
+hook Sstore currentContract._userState[KEY address i].(offset 0) uint128 val (uint128 oldVal) STORAGE {
+    ghostUserStateBalance[i] = val;
+}
+
+//
+// Ghost copy of `mapping(address => UserState.additionalData)`
+//
+
+ghost mapping (address => uint128) ghostUserStateAdditionalData {
+    init_state axiom forall address i. ghostUserStateAdditionalData[i] == 0;
+}
+
+hook Sload uint128 val currentContract._userState[KEY address i].(offset 16) STORAGE {
+    require(ghostUserStateAdditionalData[i] == val);
+}
+
+hook Sstore currentContract._userState[KEY address i].(offset 16) uint128 val STORAGE {
+    ghostUserStateAdditionalData[i] = val;
+}
 
 ///////////////// PROPERTIES //////////////////////
 
 // At any point in time, the user's discount rate isn't larger than 100%
 invariant discountCantExceed100Percent(address user)
-    getUserDiscountRate(user) <= MAX_DISCOUNT()
-    {
+    // changed from `getUserDiscountRate(user)` to `ghostDiscountPercent[user]`
+    ghostDiscountPercent[user] <= assert_uint16(MAX_DISCOUNT()) filtered { f -> !EXCLUDED_FUNCTIONS(f) } { // added
         preserved updateDiscountDistribution(address sender,address recipient,uint256 senderDiscountTokenBalance,uint256 recipientDiscountTokenBalance,uint256 amount) with (env e) {
             require(indexAtTimestamp(e.block.timestamp) >= ray());
         }
     }
 
 // Ensuring that the defined disallowed functions revert in any case (from VariableDebtToken.spec)
-rule disallowedFunctionalities(method f) filtered { f -> disAllowedFunctions(f) } {
-    env e; 
-    calldataarg args;
+rule disallowedFunctionalities(method f, env e, calldataarg args) filtered { f -> disAllowedFunctions(f) } {
     f@withrevert(e, args);
-    assert lastReverted;
+    assert(lastReverted);
 }
 
 // Proves that the user's balance of debt token (as reported by GhoVariableDebtToken::balanceOf) 
 //  can't increase by calling any external non-mint function.
 rule nonMintFunctionCantIncreaseBalance(method f) 
-    filtered { f-> f.selector != sig:mint(address, address, uint256, uint256).selector } {
+    filtered { f-> f.selector != sig:mint(address, address, uint256, uint256).selector 
+        && !EXCLUDED_FUNCTIONS(f) } { // Added
+
     address user;
     uint256 ts1;
     uint256 ts2;
@@ -141,7 +365,9 @@ rule nonMintFunctionCantIncreaseBalance(method f)
 // Proves that a call to a non-mint operation won't increase the user's balance of the actual 
 //  debt tokens (i.e. it's scaled balance)
 rule nonMintFunctionCantIncreaseScaledBalance(method f) 
-    filtered { f-> f.selector != sig:mint(address, address, uint256, uint256).selector } {
+    filtered { f-> f.selector != sig:mint(address, address, uint256, uint256).selector 
+        && !EXCLUDED_FUNCTIONS(f) } {
+
     address user;
     uint256 ts1;
     uint256 ts2;
@@ -162,7 +388,7 @@ rule nonMintFunctionCantIncreaseScaledBalance(method f)
 }
 
 // Proves that debt tokens aren't transferable
-rule debtTokenIsNotTransferable(method f) {
+rule debtTokenIsNotTransferable(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
     address user1;
     address user2;
     require(user1 != user2);
@@ -172,6 +398,7 @@ rule debtTokenIsNotTransferable(method f) {
     env e;
     calldataarg args;
     f(e,args);
+
     uint256 scaledBalanceAfter1 = scaledBalanceOf(user1);
     uint256 scaledBalanceAfter2 = scaledBalanceOf(user2);
 
@@ -182,7 +409,7 @@ rule debtTokenIsNotTransferable(method f) {
 
 // Proves that only burn/mint/rebalanceUserDiscountPercent/updateDiscountDistribution 
 //  can modify user's scaled balance
-rule onlyCertainFunctionsCanModifyScaledBalance(method f) {
+rule onlyCertainFunctionsCanModifyScaledBalance(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
     address user;
     uint256 ts1;
     uint256 ts2;
@@ -208,7 +435,7 @@ rule onlyCertainFunctionsCanModifyScaledBalance(method f) {
 
 // Proves that only a call to decreaseBalanceFromInterest will decrease the user's 
 //  accumulated interest listing.
-rule userAccumulatedDebtInterestWontDecrease(method f) {
+rule userAccumulatedDebtInterestWontDecrease(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
     address user;
     uint256 ts1;
     uint256 ts2;
@@ -229,7 +456,8 @@ rule userAccumulatedDebtInterestWontDecrease(method f) {
 }
 
 // Proves that a user can't nullify its debt without calling burn
-rule userCantNullifyItsDebt(method f) {
+rule userCantNullifyItsDebt(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
+
     address user;
     env e;
     env e2;
@@ -251,7 +479,8 @@ rule userCantNullifyItsDebt(method f) {
 //
 
 // Proves that after calling mint, the user's discount rate is up to date
-rule integrityOfMintUpdateDiscountRate() {
+rule integrityOfMint_updateDiscountRate() {
+
     address user1;
     address user2;
     env e;
@@ -263,11 +492,11 @@ rule integrityOfMintUpdateDiscountRate() {
     uint256 debtBalance = balanceOf(e, user2);
     uint256 discountBalance = getBalanceOfDiscountToken(e, user2);
     uint256 discountRate = getUserDiscountRate(user2);
-    assert(discStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
+    assert(_GhoDiscountRateStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
 }
 
 // Proves the after calling mint, the user's state is updated with the recent index value
-rule integrityOfMintUpdateIndex() {
+rule integrityOfMint_updateIndex() {
     address user1;
     address user2;
     env e;
@@ -279,9 +508,8 @@ rule integrityOfMintUpdateIndex() {
     assert(getUserCurrentIndex(user2) == index);
 }
 
-// Proves that on a fixed index calling mint(user, amount) will increase the user's scaled balance 
-//  by amount. 
-rule integrityOfMintUpdateScaledBalanceFixedIndex() {
+// Proves that on a fixed index calling mint(user, amount) will increase the user's scaled balance by amount. 
+rule integrityOfMint_updateScaledBalance_fixedIndex() {
     address user;
     env e;
     uint256 balanceBefore = balanceOf(e, user);
@@ -319,20 +547,21 @@ rule integrityOfMint_userIsolation() {
 // Proves that when calling mint, the user's balance (as reported by GhoVariableDebtToken::balanceOf) 
 //  will increase if the call is made on bahalf of the user.
 rule onlyMintForUserCanIncreaseUsersBalance() {
+
     address user1;
     env e;
     require(getUserCurrentIndex(user1) == indexAtTimestamp(e.block.timestamp));
     
     uint256 finBalanceBeforeMint = balanceOf(e, user1);
     uint256 amount;
-    mint(e,user1, user1, amount, indexAtTimestamp(e.block.timestamp));
+    mint(e, user1, user1, amount, indexAtTimestamp(e.block.timestamp));
     uint256 finBalanceAfterMint = balanceOf(e, user1);
 
     assert(finBalanceAfterMint != finBalanceBeforeMint);
 }
 
 // Checking atoken alone (from VariableDebtToken.spec)
-rule integrityMintAtoken(address a, uint256 x) {
+rule integrityMint_atoken(address a, uint256 x) {
     env e;
     address delegatedUser;
     uint256 index = indexAtTimestamp(e.block.timestamp);
@@ -357,7 +586,8 @@ rule integrityMintAtoken(address a, uint256 x) {
 //
 
 // Proves that after calling burn, the user's discount rate is up to date
-rule integrityOfBurnUpdateDiscountRate() {
+rule integrityOfBurn_updateDiscountRate() {
+
     address user;
     env e;
     uint256 amount;
@@ -369,11 +599,11 @@ rule integrityOfBurnUpdateDiscountRate() {
     uint256 discountBalance = getBalanceOfDiscountToken(e, user);
     uint256 discountRate = getUserDiscountRate(user);
 
-    assert(discStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
+    assert(_GhoDiscountRateStrategy.calculateDiscountRate(debtBalance, discountBalance) == discountRate);
 }
 
 // Proves the after calling burn, the user's state is updated with the recent index value
-rule integrityOfBurnUpdateIndex() {
+rule integrityOfBurn_updateIndex() {
     address user;
     env e;
     uint256 amount;
@@ -386,6 +616,7 @@ rule integrityOfBurnUpdateIndex() {
 
 // Proves that calling burn with 0 amount doesn't change the user's balance (from VariableDebtToken.spec)
 rule burnZeroDoesntChangeBalance(address u, uint256 index) {
+
     env e;
     uint256 balanceBefore = balanceOf(e, u);
     
@@ -396,7 +627,8 @@ rule burnZeroDoesntChangeBalance(address u, uint256 index) {
 }
 
 // Proves a concrete case of repaying the full debt that ends with a zero balance
-rule integrityOfBurnFullRepayConcrete() {
+rule integrityOfBurn_fullRepay_concrete() {
+
     env e;
     address user;
     uint256 currentDebt = balanceOf(e, user);
@@ -414,7 +646,7 @@ rule integrityOfBurnFullRepayConcrete() {
 }
 
 // Proves that burn can't effect other user's scaled balance
-rule integrityOfBurnUserIsolation() {
+rule integrityOfBurn_userIsolation() {
     address otherUser;
     uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
     env e;
@@ -432,9 +664,9 @@ rule integrityOfBurnUserIsolation() {
 // integrity of updateDiscountDistribution()
 // 
 
-// Proves the after calling updateDiscountDistribution, the user's state is updated with the 
-//  recent index value
-rule integrityOfUpdateDiscountDistributionUpdateIndex() {
+// Proves the after calling updateDiscountDistribution, the user's state is updated with the recent index value
+rule integrityOfUpdateDiscountDistribution_updateIndex() {
+
     address sender;
     address recipient;
     uint256 senderDiscountTokenBalance;
@@ -451,7 +683,7 @@ rule integrityOfUpdateDiscountDistributionUpdateIndex() {
 }
 
 // Proves that updateDiscountDistribution can't effect other user's scaled balance
-rule integrityOfUpdateDiscountDistributionUserIsolation() {
+rule integrityOfUpdateDiscountDistribution_userIsolation() {
     address otherUser;
     uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
 
@@ -475,22 +707,23 @@ rule integrityOfUpdateDiscountDistributionUserIsolation() {
 //
 
 // Proves that after calling rebalanceUserDiscountPercent, the user's discount rate is up to date
-rule integrityOfRebalanceUserDiscountPercentUpdateDiscountRate() {
+rule integrityOfRebalanceUserDiscountPercent_updateDiscountRate() {
+
     address user;
     env e;
 
     rebalanceUserDiscountPercent(e, user);
     
-    assert(discStrategy.calculateDiscountRate(balanceOf(e, user), getBalanceOfDiscountToken(e, user)) 
+    assert(_GhoDiscountRateStrategy.calculateDiscountRate(balanceOf(e, user), getBalanceOfDiscountToken(e, user)) 
         == getUserDiscountRate(user));
 }
 
-// Proves that after calling rebalanceUserDiscountPercent, the user's state is updated with the 
-//  recent index value
-rule integrityOfRebalanceUserDiscountPercentUpdateIndex() {
+// Proves that after calling rebalanceUserDiscountPercent, the user's state is updated with the recent index value
+rule integrityOfRebalanceUserDiscountPercent_updateIndex() {
+    
     address user;
     env e;
-    
+
     rebalanceUserDiscountPercent(e, user);
 
     uint256 index = indexAtTimestamp(e.block.timestamp);
@@ -498,7 +731,7 @@ rule integrityOfRebalanceUserDiscountPercentUpdateIndex() {
 }
 
 // Proves that rebalanceUserDiscountPercent can't effect other user's scaled balance
-rule integrityOfRebalanceUserDiscountPercentUserIsolation() {
+rule integrityOfRebalanceUserDiscountPercent_userIsolation() {
     address otherUser;
     uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
     env e;
@@ -515,7 +748,7 @@ rule integrityOfRebalanceUserDiscountPercentUserIsolation() {
 //
 
 // Proves that a user with 100% discounts has a fixed balance over time
-rule integrityOfBalanceOfFullDiscount() {
+rule integrityOfBalanceOf_fullDiscount() {
     address user;
     uint256 fullDiscountRate = 10000; //100%
     require(getUserDiscountRate(user) == fullDiscountRate);
@@ -528,7 +761,8 @@ rule integrityOfBalanceOfFullDiscount() {
 }
 
 // Proves that a user's balance, with no discount, is equal to rayMul(scaledBalance, current index)
-rule integrityOfBalanceOfNoDiscount() {
+rule integrityOfBalanceOf_noDiscount() {
+
     address user;
     require(getUserDiscountRate(user) == 0);
     env e;
@@ -540,7 +774,7 @@ rule integrityOfBalanceOfNoDiscount() {
 }
 
 // Proves the a user with zero scaled balance has a zero balance
-rule integrityOfBalanceOfZeroScaledBalance() {
+rule integrityOfBalanceOf_zeroScaledBalance() {
     address user;
     env e;
     uint256 scaledBalance = scaledBalanceOf(user);
@@ -549,7 +783,9 @@ rule integrityOfBalanceOfZeroScaledBalance() {
     assert(balanceOf(e, user) == 0);
 }
 
+// Proves the balance will be zero when burn whole dept
 rule burnAllDebtReturnsZeroDebt(address user) {
+
     env e;
     uint256 _variableDebt = balanceOf(e, user);
     
@@ -558,3 +794,5 @@ rule burnAllDebtReturnsZeroDebt(address user) {
     uint256 variableDebt_ = balanceOf(e, user);
     assert(variableDebt_ == 0);
 }
+
+///////////////// ADDED PROPERTIES //////////////////////

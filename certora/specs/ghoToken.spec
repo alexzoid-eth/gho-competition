@@ -1,4 +1,4 @@
-import "./methods/ghoTokenHelperMethods.spec";
+import "./methods/GhoTokenHelperMethods.spec";
 
 ///////////////// METHODS //////////////////////
 
@@ -196,42 +196,6 @@ hook Sload uint256 balance currentContract.balanceOf[KEY address a] STORAGE {
 hook Sstore currentContract.balanceOf[KEY address a] uint256 balance (uint256 old_balance) STORAGE {
     ghostBalanceOfMapping[a] = balance;
     sumAllBalance = sumAllBalance + balance - old_balance;
-}
-
-//
-// Ghost copy of `ERC20.name`
-//
-
-ghost mathint nameLength {
-    init_state axiom nameLength == 0;
-}
-
-hook Sstore currentContract.name.(offset 0) uint256 val STORAGE {
-    nameLength = val;
-}
-
-//
-// Ghost copy of `ERC20.symbol`
-//
-
-ghost mathint symbolLength {
-    init_state axiom symbolLength == 0;
-}
-
-hook Sstore currentContract.symbol.(offset 0) uint256 val STORAGE {
-    symbolLength = val;
-}
-
-//
-// Ghost copy of `AccessControl._roles`
-//
-
-ghost bool adminRoleSetup {
-    init_state axiom adminRoleSetup == false;
-}
-
-hook Sstore currentContract._roles[KEY bytes32 role].members[KEY address addr] bool val STORAGE {
-    adminRoleSetup = (role == to_bytes32(0)) ? val : adminRoleSetup;
 }
 
 ///////////////// ASSUME INVARIANTS ////////////////
@@ -563,21 +527,6 @@ rule addFacilitatorShouldSetLabelAndBucketCapacity(env e, address facilitator, s
 
     assert(facilitatorLabel.length == _GhoTokenHelper.getFacilitatorsLabelLen(facilitator));
     assert(bucketCapacity == assert_uint128(_GhoTokenHelper.getFacilitatorBucketCapacity(facilitator)));
-}
-
-// TODO: Sanity fail, the only way to test constructor. Skip it?
-// [2] Prove that `DEFAULT_ADMIN_ROLE` setup in constructor
-invariant adminRoleSetupInConstructor() adminRoleSetup == true {
-    preserved {
-        require(false);
-    }
-}
-
-// [3] Prove that ERC20 setup correctly in constructor
-invariant erc20SetupInConstructor() nameLength > 0 && symbolLength > 0 {
-    preserved {
-        require(false);
-    }
 }
 
 // [4] Mint and burn revert when amount is zero

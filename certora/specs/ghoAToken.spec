@@ -1,4 +1,6 @@
-import "./methods/ghoTokenHelperMethods.spec";
+import "./methods/GhoTokenHelperMethods.spec";
+import "./methods/ScaledBalanceTokenBaseMethods.spec";
+import "./methods/EIP712BaseMethods.spec";
 
 using GhoTokenHarness as _GhoTokenHarness;
 using GhoVariableDebtTokenHarness as _GhoVariableDebtTokenHarness;
@@ -21,8 +23,8 @@ methods{
 
     // GhoAToken
     function initialize(address initializingPool, address treasury, address underlyingAsset, 
-        address incentivesController, uint8 aTokenDecimals, string calldata aTokenName, 
-        string calldata aTokenSymbol, bytes calldata params) external;
+        address incentivesController, uint8 aTokenDecimals, string memory aTokenName, 
+        string memory aTokenSymbol, bytes calldata params) external;
     function mint(address caller, address onBehalfOf, uint256 amount, uint256 index) external returns (bool); // Always reverts
     function burn(address from, address receiverOfUnderlying, uint256 amount, uint256 index) external; // Always reverts
     function mintToTreasury(uint256 amount, uint256 index) external; // Always reverts
@@ -45,34 +47,9 @@ methods{
     function updateGhoTreasury(address newGhoTreasury) external;
     function getGhoTreasury() external returns (address) envfree;
 
-    // ScaledBalanceTokenBase
-    function scaledBalanceOf(address) external returns (uint256) envfree;
-    function getScaledUserBalanceAndSupply(address user) external returns (uint256, uint256) envfree;
-    function scaledTotalSupply() internal returns (uint256);
-    function getPreviousIndex(address user) external returns (uint256) envfree;
-
-    // IncentivizedERC20
-    function name() internal returns (string memory);
-    function symbol() external returns (string memory) envfree;
-    function decimals() external returns (uint8) envfree;
-    // function totalSupply() internal returns (uint256); // overridden in GhoAToken
-    // function balanceOf(address account) internal returns (uint256); // overridden in GhoAToken
-    function getIncentivesController() external returns (address) envfree;
-    function setIncentivesController(address controller) external;
-    function transfer(address recipient, uint256 amount) external returns (bool); // Always reverts
-    function allowance(address owner, address spender) external returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool); // Always reverts
-    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
-    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
-    // function _transfer(address sender, address recipient, uint128 amount) virtual; // overridden in GhoAToken
-    function _setName(string memory newName) internal;
-    function _setSymbol(string memory newSymbol) internal;
-    function _setDecimals(uint8 newDecimals) internal;
-
     // EIP712Base
-    // function DOMAIN_SEPARATOR() internal returns (bytes32); // overridden in GhoAToken
-    // function nonces(address owner) internal returns (uint256); // overridden in GhoAToken
+    function DOMAIN_SEPARATOR() internal returns (bytes32); // overridden in GhoAToken
+    function nonces(address owner) internal returns (uint256); // overridden in GhoAToken
     function _calculateDomainSeparator() internal returns (bytes32);
 
     //
@@ -96,7 +73,7 @@ methods{
     function _.safeTransfer(address, uint256) external => DISPATCHER(true);
 
     // Pool
-    function _.ADDRESSES_PROVIDER() external => addressesProviderSummarize() expect address ALL;
+    function _.ADDRESSES_PROVIDER() external => CONSTANT;
 
     // PoolAddressesProvider
     function _.getACLManager() external => CONSTANT;
@@ -106,10 +83,6 @@ methods{
 }
 
 ///////////////// DEFINITIONS /////////////////////
-
-definition ADDRESSES_PROVIDER_ADDRESS() returns address = 111;
-definition POOL_ADDRESS() returns address = 222;
-definition NAME_SYMBOL_STR() returns string = "GHO_ATOKEN_IMPL";
 
 definition VIEW_FUNCTIONS(method f) returns bool = f.isView || f.isPure;
 
@@ -144,11 +117,6 @@ definition BURN_MINT_USE_FUNCTIONS(method f) returns bool =
 
 ////////////////// FUNCTIONS //////////////////////
 
-function addressesProviderSummarize() returns address {
-    ghostAddressesProvider = ADDRESSES_PROVIDER_ADDRESS();
-    return ADDRESSES_PROVIDER_ADDRESS();
-}
-
 function setUp() {
     require(_GhoTokenHarness == ghostUnderlyingAsset);
     require(_GhoVariableDebtTokenHarness == ghostGhoVariableDebtToken);
@@ -159,22 +127,6 @@ function setUp() {
 }
 
 ///////////////// GHOSTS & HOOKS //////////////////
-
-//
-// Ghost copy of `POOL`
-//
-
-ghost address ghostPool {
-    init_state axiom ghostPool == 0;
-}
-
-//
-// Ghost copy of `_addressesProvider`
-//
-
-ghost address ghostAddressesProvider {
-    init_state axiom ghostAddressesProvider == 0;
-}
 
 //
 // VersionedInitializable initial values
@@ -305,38 +257,6 @@ hook Sstore currentContract._domainSeparator bytes32 val STORAGE {
 */
 
 //
-// Ghost copy of `ERC20.name`
-//
-
-ghost uint256 ghostNameLength {
-    init_state axiom ghostNameLength == 0;
-}
-
-hook Sload uint256 val currentContract._name.(offset 0) STORAGE {
-    require(ghostNameLength == val);
-}
-
-hook Sstore currentContract._name.(offset 0) uint256 val STORAGE {
-    ghostNameLength = val;
-}
-
-//
-// Ghost copy of `ERC20.symbol`
-//
-
-ghost uint256 ghostSymbolLength {
-    init_state axiom ghostSymbolLength == 0;
-}
-
-hook Sload uint256 val currentContract._symbol.(offset 0) STORAGE {
-    require(ghostSymbolLength == val);
-}
-
-hook Sstore currentContract._symbol.(offset 0) uint256 val STORAGE {
-    ghostSymbolLength = val;
-}
-
-//
 // Ghost copy of `ERC20.decimals`
 //
 
@@ -433,19 +353,6 @@ rule integrityTransferUnderlyingToWithHandleRepayment() {
 }
 
 ///////////////// ADDED PROPERTIES //////////////////////
-
-// Prove that POOL, _addressesProvider, 
-//  ERC20 setup correctly in constructor
-invariant initialSetupInConstructor() 
-    ghostNameLength > 0 && ghostSymbolLength > 0 
-    // TODO: add ghostPool set check
-    // TODO: seems that addressesProviderSummarize() is not executed
-    // && ghostAddressesProvider == ADDRESSES_PROVIDER_ADDRESS()
-{
-    preserved {
-        require(false);
-    }
-}
 
 // [2] Initialize could be executed once
 rule initializeCouldBeExecutedOnce(env e1, calldataarg args1, env e2, calldataarg args2) {
