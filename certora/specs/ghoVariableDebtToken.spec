@@ -83,7 +83,14 @@ methods{
         => indexAtTimestamp(e.block.timestamp);
 
     // GhoDiscountRateStrategy
-    function _GhoDiscountRateStrategy.calculateDiscountRate(uint256, uint256) external returns (uint256) envfree;
+    function _GhoDiscountRateStrategy.calculateDiscountRate(
+        uint256 debtBalance,uint256 discountTokenBalance) external returns (uint256) envfree;
+
+    // Pool
+    function _.ADDRESSES_PROVIDER() external => CONSTANT;
+
+    // IncentivesController
+    function _.handleAction(address account, uint256 oldTotalSupply, uint256 oldAccountBalance) external => CONSTANT;
 
     // PoolAddressesProvider
     function _.getACLManager() external => CONSTANT;
@@ -175,7 +182,6 @@ function rayDivUint256(uint256 a, uint256 b) returns uint256 {
 
 // Query index_ghost for the index value at the input timestamp
 function indexAtTimestamp(uint256 timestamp) returns uint256 {
-    // require(index_ghost[timestamp] >= RAY());
     return index_ghost[timestamp];
 }
 
@@ -819,12 +825,20 @@ rule burnAllDebtReturnsZeroDebt(address user) {
 ///////////////// ADDED PROPERTIES //////////////////////
 
 // User_index >= RAY() and user_index <= current_index
-invariant userIndexSetup(env eInv, address user) ghostUserStateAdditionalData[user] >= RAY()
+invariant userIndexSetup(env eInv, address user) ghostUserStateAdditionalData[user] >= RAY() 
     && ghostUserStateAdditionalData[user] <= index_ghost[eInv.block.timestamp]
     filtered { f -> !EXCLUDED_FUNCTIONS(f) } {
         preserved with (env eFunc) {
             // Use the same timestamp in env and invariantEnv
             require(eInv.block.timestamp == eFunc.block.timestamp);
+        }
+        preserved mint(address _user, address onBehalfOf, uint256 amount, uint256 index) with (env eMint) {
+            // Mint is executed with the actual index
+            require(index == index_ghost[eInv.block.timestamp]);
+        }
+        preserved burn(address from, uint256 amount, uint256 index) with (env eBurn) {
+            // Burn is executed with the actual index
+            require(index == index_ghost[eInv.block.timestamp]);
         }
     }
 
@@ -902,4 +916,42 @@ rule viewersIntegrity(env e, address user) {
     );
 }
 
+// Possibility should not revert
+rule functionsNotRevert(env e, method f, calldataarg args) 
+    filtered { f -> !DISALLOWED_FUNCTIONS(f) && !HARNESS_FUNCTIONS(f) } {
 
+    f@withrevert(e, args);
+    
+    satisfy(!lastReverted);
+}
+
+// Set system variables requirements
+rule setSystemVariablesRulesRequirements(env e, method f, calldataarg args)
+    filtered { f -> !DISALLOWED_FUNCTIONS(f) && !HARNESS_FUNCTIONS(f) } {
+
+    address ghoATokenBefore = ghostGhoAToken;
+    address discountRateStrategyBefore = ghostDiscountRateStrategy;
+    address discountTokenBefore = ghostDiscountToken;
+
+    f@withrevert(e, args);
+    bool reverted = lastReverted;
+
+    address ghoATokenAfter = ghostGhoAToken;
+    address discountRateStrategyAfter = ghostDiscountRateStrategy;
+    address discountTokenAfter = ghostDiscountToken;
+
+    bool changed = ghoATokenBefore != ghoATokenAfter
+        || discountRateStrategyBefore != discountRateStrategyAfter
+        || discountTokenBefore != discountTokenAfter;
+
+    // Only pool admin could set system variables
+    assert(!reverted && changed => isPoolAdmin(e, e.msg.sender));
+    
+    // ghoAToken could be set once
+    assert(ghoATokenBefore != 0 && ghoATokenBefore != ghoATokenAfter => reverted);
+
+    // Could not set zero address
+    assert(ghoATokenAfter == 0 && ghoATokenBefore != ghoATokenAfter => reverted);
+    assert(discountRateStrategyAfter == 0 && discountRateStrategyBefore != discountRateStrategyAfter => reverted);
+    assert(discountTokenAfter == 0 && discountTokenBefore != discountTokenAfter => reverted);
+}
