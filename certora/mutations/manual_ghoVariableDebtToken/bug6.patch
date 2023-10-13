@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..f035c85 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -177,7 +177,7 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+ 
+   /// @inheritdoc EIP712Base
+   function _EIP712BaseId() internal view override returns (string memory) {
+-    return name();
++    return "_EIP712BaseId";
+   }
+ 
+   /**

@@ -1,6 +1,9 @@
 import "./methods/GhoTokenHelperMethods.spec";
 import "./methods/ScaledBalanceTokenBaseMethods.spec";
 import "./methods/EIP712BaseMethods.spec";
+import "./helpers/VersionedInitializable.spec";
+import "./helpers/EIP712Base.spec";
+import "./helpers/IncentivizedERC20.spec";
 
 using GhoDiscountRateStrategy as _GhoDiscountRateStrategy;
 using DummyERC20WithTimedBalanceOf as _DummyERC20WithTimedBalanceOf;
@@ -22,8 +25,16 @@ methods{
     function getBalanceOfDiscountToken(address user) external returns (uint256);
     function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
     function rayDiv(uint256 x, uint256 y) external returns (uint256) envfree;
+    // added
+    function getRevisionHarness() external returns (uint256) envfree;
+    function getPoolAddress() external returns (address) envfree;
+    function calculateDomainSeparator() external returns (bytes32);
+    function isPoolAdmin(address account) external returns (bool);
+    function setName1() external envfree;
+    function setName2() external envfree;
 
     // GhoVariableDebtToken
+    function DEBT_TOKEN_REVISION() external returns (uint256) envfree;
     function initialize(address initializingPool, address underlyingAsset, address incentivesController,
         uint8 debtTokenDecimals, string calldata debtTokenName, string calldata debtTokenSymbol,
         bytes calldata params) external;
@@ -45,7 +56,7 @@ methods{
     function updateDiscountRateStrategy(address newDiscountRateStrategy) external;
     function getDiscountRateStrategy() external returns (address) envfree;
     function updateDiscountToken(address newDiscountToken) external;
-    function getDiscountToken() external returns (address);
+    function getDiscountToken() external returns (address) envfree;
     function updateDiscountDistribution(address sender, address recipient, uint256 senderDiscountTokenBalance, 
         uint256 recipientDiscountTokenBalance, uint256 amount) external;
     function getDiscountPercent(address user) external returns (uint256) envfree;
@@ -67,8 +78,7 @@ methods{
     function _DummyERC20WithTimedBalanceOf.balanceOf(address user) external returns (uint256) with (env e) 
         => balanceOfDiscountTokenAtTimestamp(user, e.block.timestamp) ;
 
-    // DummyPool (linked to POOL)
-    // represent a random index per block
+    // DummyPool (linked to POOL), represent a random index per block
     function _DummyPool.getReserveNormalizedVariableDebt(address asset) external returns (uint256) with (env e) 
         => indexAtTimestamp(e.block.timestamp);
 
@@ -81,17 +91,22 @@ methods{
     // ACLManager
     function _.isPoolAdmin(address) external => CONSTANT;
 
-    // Possible optimization
-    function _.rayMul(uint256 a, uint256 b) external => rayMulUint256(a, b) expect uint256 ALL;
-    function _.rayDiv(uint256 a, uint256 b) external => rayDivUint256(a, b) expect uint256 ALL;
+    // Possibility of run-time optimization
+    function _.rayMul(uint256 a, uint256 b) internal => rayMulUint256(a, b) expect uint256 ALL;
+    function _.rayDiv(uint256 a, uint256 b) internal => rayDivUint256(a, b) expect uint256 ALL;
 }
 
 ///////////////// DEFINITIONS /////////////////////
 
-// equals to 100% discount, in points
-definition MAX_DISCOUNT() returns uint256 = 10000; 
-definition ray() returns uint256 = 1000000000000000000000000000; // 10^27
-definition disAllowedFunctions(method f) returns bool = 
+definition UINT128_MAX() returns uint256 = 0xffffffffffffffffffffffffffffffff;
+definition UINT256_MAX() returns uint256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+
+definition MAX_DISCOUNT() returns uint256 = 10000; // equals to 100% discount, in points
+
+definition RAY() returns uint256 =     1000000000000000000000000000; // 10^27
+definition HALF_RAY() returns uint256 = 500000000000000000000000000; 
+
+definition DISALLOWED_FUNCTIONS(method f) returns bool = 
     f.selector == sig:transfer(address, uint256).selector ||
     f.selector == sig:allowance(address, address).selector ||
     f.selector == sig:approve(address, uint256).selector ||
@@ -109,10 +124,16 @@ definition HARNESS_FUNCTIONS(method f) returns bool =
     || f.selector == sig:getBalanceOfDiscountToken(address).selector
     || f.selector == sig:rayMul(uint256, uint256).selector
     || f.selector == sig:rayDiv(uint256, uint256).selector
+    || f.selector == sig:getRevisionHarness().selector
+    || f.selector == sig:getPoolAddress().selector
+    || f.selector == sig:calculateDomainSeparator().selector
+    || f.selector == sig:isPoolAdmin(address).selector
+    || f.selector == sig:setName1().selector
+    || f.selector == sig:setName2().selector
     ;
 
 definition EXCLUDED_FUNCTIONS(method f) returns bool = 
-    disAllowedFunctions(f) || HARNESS_FUNCTIONS(f) || VIEW_FUNCTIONS(f);
+    DISALLOWED_FUNCTIONS(f) || HARNESS_FUNCTIONS(f) || VIEW_FUNCTIONS(f);
 
 ////////////////// FUNCTIONS //////////////////////
 
@@ -133,26 +154,29 @@ function setUp() {
 //
 
 function rayMulCVL(uint256 a, uint256 b) returns mathint {
-    return ((a * b + (ray() / 2)) / ray());
+    return ((a * b + (RAY() / 2)) / RAY());
 }
 
 function rayDivCVL(uint256 a, uint256 b) returns mathint {
-    return ((a * ray() + (b / 2)) / b);
+    return ((a * RAY() + (b / 2)) / b);
 }
 
 function rayMulUint256(uint256 a, uint256 b) returns uint256 {
-    return require_uint256((a * b + (ray() / 2)) / ray());
+    // to avoid overflow, a <= (type(uint256).max - HALF_RAY) / b
+    require(b != 0 && a <= require_uint256((UINT256_MAX() - HALF_RAY()) / b));
+    return require_uint256((a * b + (RAY() / 2)) / RAY());
 }
 
 function rayDivUint256(uint256 a, uint256 b) returns uint256 {
-    return require_uint256((a * ray() + (b / 2)) / b);
+    // to avoid overflow, a <= (type(uint256).max - halfB) / RAYs
+    require(b != 0 && a <= require_uint256((UINT256_MAX() - (b / 2)) / RAY()));
+    return require_uint256((a * RAY() + (b / 2)) / b);
 }
 
 // Query index_ghost for the index value at the input timestamp
 function indexAtTimestamp(uint256 timestamp) returns uint256 {
-    require(index_ghost[timestamp] >= ray());
+    // require(index_ghost[timestamp] >= RAY());
     return index_ghost[timestamp];
-    // return 1001684385021630839436707910;//index_ghost[timestamp];
 }
 
 // Query discount_ghost for the [user]'s balance of discount token at [timestamp]
@@ -169,9 +193,12 @@ function envAtTimestamp(uint256 ts) returns env {
 
 ///////////////// GHOSTS & HOOKS //////////////////
 
-//todo: check balanceof after mint (stable index), burn after balanceof
 ghost mapping(address => mapping (uint256 => uint256)) discount_ghost;
-ghost mapping(uint256 => uint256) index_ghost;
+
+ghost mapping(uint256 => uint256) index_ghost {
+    axiom forall uint256 timestamp. (index_ghost[timestamp] >= RAY() 
+        && index_ghost[timestamp] <= UINT128_MAX());
+}
 
 //
 // Ghost copy of `_ghoAToken`
@@ -305,12 +332,13 @@ hook Sstore currentContract._userState[KEY address i].(offset 0) uint128 val (ui
 // Ghost copy of `mapping(address => UserState.additionalData)`
 //
 
-ghost mapping (address => uint128) ghostUserStateAdditionalData {
-    init_state axiom forall address i. ghostUserStateAdditionalData[i] == 0;
+ghost mapping (address => uint256) ghostUserStateAdditionalData {
+    init_state axiom forall address user. forall uint256 timestamp. (ghostUserStateAdditionalData[user] >= RAY() 
+        && ghostUserStateAdditionalData[user] <= index_ghost[timestamp]);
 }
 
 hook Sload uint128 val currentContract._userState[KEY address i].(offset 16) STORAGE {
-    require(ghostUserStateAdditionalData[i] == val);
+    require(require_uint128(ghostUserStateAdditionalData[i]) == val);
 }
 
 hook Sstore currentContract._userState[KEY address i].(offset 16) uint128 val STORAGE {
@@ -324,12 +352,12 @@ invariant discountCantExceed100Percent(address user)
     // changed from `getUserDiscountRate(user)` to `ghostDiscountPercent[user]`
     ghostDiscountPercent[user] <= assert_uint16(MAX_DISCOUNT()) filtered { f -> !EXCLUDED_FUNCTIONS(f) } { // added
         preserved updateDiscountDistribution(address sender,address recipient,uint256 senderDiscountTokenBalance,uint256 recipientDiscountTokenBalance,uint256 amount) with (env e) {
-            require(indexAtTimestamp(e.block.timestamp) >= ray());
+            require(indexAtTimestamp(e.block.timestamp) >= RAY());
         }
     }
 
 // Ensuring that the defined disallowed functions revert in any case (from VariableDebtToken.spec)
-rule disallowedFunctionalities(method f, env e, calldataarg args) filtered { f -> disAllowedFunctions(f) } {
+rule disallowedFunctionalities(method f, env e, calldataarg args) filtered { f -> DISALLOWED_FUNCTIONS(f) } {
     f@withrevert(e, args);
     assert(lastReverted);
 }
@@ -345,7 +373,7 @@ rule nonMintFunctionCantIncreaseBalance(method f)
     uint256 ts2;
     require(ts2 >= ts1);
     // Forcing the index to be fixed (otherwise the rule times out). For non-fixed index replace `==` with `>=`
-    require((indexAtTimestamp(ts1) >= ray()) && 
+    require((indexAtTimestamp(ts1) >= RAY()) && 
             (indexAtTimestamp(ts2) == indexAtTimestamp(ts1)));
     require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
     requireInvariant discountCantExceed100Percent(user);
@@ -356,7 +384,7 @@ rule nonMintFunctionCantIncreaseBalance(method f)
     f(e,args);
 
     mathint balanceAfterOp = balanceOf(e, user);
-    mathint allowedDiff = indexAtTimestamp(ts2) / ray();
+    mathint allowedDiff = indexAtTimestamp(ts2) / RAY();
 
     // assert(balanceAfterOp != balanceBeforeOp + allowedDiff + 1);
     assert(balanceAfterOp <= balanceBeforeOp + allowedDiff);
@@ -372,7 +400,7 @@ rule nonMintFunctionCantIncreaseScaledBalance(method f)
     uint256 ts1;
     uint256 ts2;
     require(ts2 >= ts1);
-    require((indexAtTimestamp(ts1) >= ray()) && 
+    require((indexAtTimestamp(ts1) >= RAY()) && 
             (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
 
     require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
@@ -414,7 +442,7 @@ rule onlyCertainFunctionsCanModifyScaledBalance(method f) filtered { f-> !EXCLUD
     uint256 ts1;
     uint256 ts2;
     require(ts2 >= ts1);
-    require((indexAtTimestamp(ts1) >= ray()) && (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
+    require((indexAtTimestamp(ts1) >= RAY()) && (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
 
     require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
     requireInvariant discountCantExceed100Percent(user);
@@ -440,7 +468,7 @@ rule userAccumulatedDebtInterestWontDecrease(method f) filtered { f-> !EXCLUDED_
     uint256 ts1;
     uint256 ts2;
     require(ts2 >= ts1);
-    require((indexAtTimestamp(ts1) >= ray()) && (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
+    require((indexAtTimestamp(ts1) >= RAY()) && (indexAtTimestamp(ts2) >= indexAtTimestamp(ts1)));
 
     require(getUserCurrentIndex(user) == indexAtTimestamp(ts1));
     requireInvariant discountCantExceed100Percent(user);
@@ -635,9 +663,9 @@ rule integrityOfBurn_fullRepay_concrete() {
     uint256 index = indexAtTimestamp(e.block.timestamp);
 
     // handle timeouts
-    require(getUserCurrentIndex(user) == ray());
-    require(to_mathint(index) == 2*ray());
-    require(to_mathint(scaledBalanceOf(user)) == 4*ray());
+    require(getUserCurrentIndex(user) == RAY());
+    require(to_mathint(index) == 2*RAY());
+    require(to_mathint(scaledBalanceOf(user)) == 4*RAY());
     
     burn(e, user, currentDebt, index);
 
@@ -748,15 +776,8 @@ rule integrityOfRebalanceUserDiscountPercent_userIsolation() {
 //
 
 // Proves that a user with 100% discounts has a fixed balance over time
-rule integrityOfBalanceOf_fullDiscount() {
-    address user;
-    uint256 fullDiscountRate = 10000; //100%
-    require(getUserDiscountRate(user) == fullDiscountRate);
-    env e1;
-    env e2;
-    uint256 index1 = indexAtTimestamp(e1.block.timestamp);
-    uint256 index2 = indexAtTimestamp(e2.block.timestamp);
-
+rule integrityOfBalanceOf_fullDiscount(env e1, env e2, address user) {
+    require(getUserDiscountRate(user) == MAX_DISCOUNT()); //100%
     assert(balanceOf(e1, user) == balanceOf(e2, user));
 }
 
@@ -796,3 +817,89 @@ rule burnAllDebtReturnsZeroDebt(address user) {
 }
 
 ///////////////// ADDED PROPERTIES //////////////////////
+
+// User_index >= RAY() and user_index <= current_index
+invariant userIndexSetup(env eInv, address user) ghostUserStateAdditionalData[user] >= RAY()
+    && ghostUserStateAdditionalData[user] <= index_ghost[eInv.block.timestamp]
+    filtered { f -> !EXCLUDED_FUNCTIONS(f) } {
+        preserved with (env eFunc) {
+            // Use the same timestamp in env and invariantEnv
+            require(eInv.block.timestamp == eFunc.block.timestamp);
+        }
+    }
+
+// [1] Initialize could be executed once (from VersionedInitializable.spec)
+use rule initializeCouldBeExecutedOnce;
+
+// [2] Could be initialized with specific pool address only
+rule initializedWithSpecificPoolAddressOnly(
+    env e, 
+    address initializingPool, 
+    address underlyingAsset, 
+    address incentivesController,
+    uint8 debtTokenDecimals, 
+    string debtTokenName, 
+    string debtTokenSymbol,
+    bytes params
+    ) {
+    
+    initialize(e, initializingPool, underlyingAsset, incentivesController, 
+        debtTokenDecimals, debtTokenName, debtTokenSymbol, params);
+    bool reverted = lastReverted;
+
+    assert(initializingPool != getPoolAddress() => reverted);
+}
+
+// [3-5] Initialize set initial params correctly
+rule initializeSetInitialParamsCorrectly(
+    env e, 
+    address initializingPool, 
+    address underlyingAsset, 
+    address incentivesController,
+    uint8 debtTokenDecimals, 
+    string debtTokenName, 
+    string debtTokenSymbol,
+    bytes params
+) {
+    require(debtTokenName.length < 16);
+    require(debtTokenSymbol.length < 16);
+
+    initialize(e, initializingPool, underlyingAsset, incentivesController, 
+        debtTokenDecimals, debtTokenName, debtTokenSymbol, params);
+
+    string n = name(e);
+    string s = symbol();
+    uint256 ni;
+    require(ni < n.length && ni < debtTokenName.length);
+    uint256 si;
+    require(si < s.length && si < debtTokenSymbol.length);
+
+    assert(
+        underlyingAsset == UNDERLYING_ASSET_ADDRESS()
+        && incentivesController == getIncentivesController()
+        && debtTokenDecimals == decimals()
+        && debtTokenName.length == n.length
+        && debtTokenSymbol.length == s.length
+        && DOMAIN_SEPARATOR(e) == calculateDomainSeparator(e)
+    );
+}
+
+// [6] Domain separator depends on token name (from EIP712Base.spec)
+use rule domainSeparatorDepensOnName;
+
+// Viewers integrity
+rule viewersIntegrity(env e, address user) {
+    assert(
+        getRevisionHarness() == DEBT_TOKEN_REVISION()
+        && UNDERLYING_ASSET_ADDRESS() == ghostUnderlyingAsset
+        && getAToken() == ghostGhoAToken
+        && getDiscountRateStrategy() == ghostDiscountRateStrategy
+        && getDiscountToken() == ghostDiscountToken
+        && assert_uint16(getDiscountPercent(user)) == ghostDiscountPercent[user]
+        && assert_uint128(getBalanceFromInterest(user)) == ghostAccumulatedDebtInterest[user]
+        && decimals() == ghostDecimals
+        && getIncentivesController() == ghostIncentivesController
+    );
+}
+
+

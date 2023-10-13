@@ -5,8 +5,8 @@ methods{
     function getScaledUserBalanceAndSupply(address user) external returns (uint256, uint256) envfree;
     function scaledTotalSupply() internal returns (uint256);
     function getPreviousIndex(address user) external returns (uint256) envfree;
-    function _mintScaled(address caller, address onBehalfOf, uint256 amount, uint256 index) internal returns (bool);
-    function _burnScaled(address user, address target, uint256 amount, uint256 index) internal;
+    function _mintScaled(address caller, address onBehalfOf, uint256 amount, uint256 index) internal returns (bool); // overridden GhoVariableDebtToken
+    function _burnScaled(address user, address target, uint256 amount, uint256 index) internal; // overridden GhoVariableDebtToken
     function _transfer(address sender, address recipient, uint256 amount, uint256 index) internal;
 
     // IncentivizedERC20

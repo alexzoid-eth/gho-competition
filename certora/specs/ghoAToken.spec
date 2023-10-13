@@ -1,6 +1,9 @@
 import "./methods/GhoTokenHelperMethods.spec";
 import "./methods/ScaledBalanceTokenBaseMethods.spec";
 import "./methods/EIP712BaseMethods.spec";
+import "./helpers/VersionedInitializable.spec";
+import "./helpers/EIP712Base.spec";
+import "./helpers/IncentivizedERC20.spec";
 
 using GhoTokenHarness as _GhoTokenHarness;
 using GhoVariableDebtTokenHarness as _GhoVariableDebtTokenHarness;
@@ -15,6 +18,7 @@ methods{
     //
 
     // GhoATokenHarness
+    function getRevisionHarness() external returns (uint256) envfree;
     function getPoolAddress() external returns (address) envfree;
     function calculateDomainSeparator() external returns (bytes32);
     function isPoolAdmin(address account) external returns (bool);
@@ -22,6 +26,7 @@ methods{
     function setName2() external envfree;
 
     // GhoAToken
+    function ATOKEN_REVISION() external returns (uint256) envfree;
     function initialize(address initializingPool, address treasury, address underlyingAsset, 
         address incentivesController, uint8 aTokenDecimals, string memory aTokenName, 
         string memory aTokenSymbol, bytes calldata params) external;
@@ -46,11 +51,6 @@ methods{
     function getVariableDebtToken() external returns (address) envfree;
     function updateGhoTreasury(address newGhoTreasury) external;
     function getGhoTreasury() external returns (address) envfree;
-
-    // EIP712Base
-    function DOMAIN_SEPARATOR() internal returns (bytes32); // overridden in GhoAToken
-    function nonces(address owner) internal returns (uint256); // overridden in GhoAToken
-    function _calculateDomainSeparator() internal returns (bytes32);
 
     //
     // External calls
@@ -129,34 +129,6 @@ function setUp() {
 ///////////////// GHOSTS & HOOKS //////////////////
 
 //
-// VersionedInitializable initial values
-//
-
-ghost bool ghostInitializing {
-    init_state axiom ghostInitializing == false;
-}
-
-hook Sload bool val currentContract.initializing STORAGE {
-    require(val == ghostInitializing);
-}
-
-hook Sstore currentContract.initializing bool val STORAGE {
-    ghostInitializing = val;
-}
-
-ghost uint256 ghostLastInitializedRevision {
-    init_state axiom ghostLastInitializedRevision == 0;
-}
-
-hook Sload uint256 val currentContract.lastInitializedRevision STORAGE {
-    require(val == ghostLastInitializedRevision);
-}
-
-hook Sstore currentContract.lastInitializedRevision uint256 val STORAGE {
-    ghostLastInitializedRevision = val;
-}
-
-//
 // Ghost copy of `_treasury`
 //
 
@@ -218,58 +190,6 @@ hook Sload address val currentContract._ghoTreasury STORAGE {
 
 hook Sstore currentContract._ghoTreasury address val STORAGE {
     ghostGhoTreasury = val;
-}
-
-//
-// Ghost copy of `_incentivesController`
-//
-
-ghost address ghostIncentivesController {
-    init_state axiom ghostIncentivesController == 0;
-}
-
-hook Sload address val currentContract._incentivesController STORAGE {
-    require(ghostIncentivesController == val);
-}
-
-hook Sstore currentContract._incentivesController address val STORAGE {
-    ghostIncentivesController = val;
-}
-
-//
-// Ghost copy of `_domainSeparator`
-//
-// Uncommenting this block leads to unexpected errors in Prover
-// uncommented: https://prover.certora.com/output/52567/3fce257bd5bd447db7f25eb12b961f05/?anonymousKey=001f36a371acf2f144e09f729eee9da2ac9878e4
-// commented: https://prover.certora.com/output/52567/1e25deaa8cd148bc88fcb323adeef0db/?anonymousKey=38ada586409811a6877cbfc14a8d5f7f3251bbaf
-// discord issue: https://discord.com/channels/795999272293236746/1160743011735580712
-ghost bytes32 ghostDomainSeparator {
-    init_state axiom ghostDomainSeparator == to_bytes32(0);
-}
-
-hook Sload bytes32 val currentContract._domainSeparator STORAGE {
-    require(ghostDomainSeparator == val);
-}
-/*
-hook Sstore currentContract._domainSeparator bytes32 val STORAGE {
-    ghostDomainSeparator = val;
-}
-*/
-
-//
-// Ghost copy of `ERC20.decimals`
-//
-
-ghost uint8 ghostDecimals {
-    init_state axiom ghostDecimals == 0;
-}
-
-hook Sload uint8 val currentContract._decimals STORAGE {
-    require(ghostDecimals == val);
-}
-
-hook Sstore currentContract._decimals uint8 val STORAGE {
-    ghostDecimals = val;
 }
 
 //
@@ -355,19 +275,7 @@ rule integrityTransferUnderlyingToWithHandleRepayment() {
 ///////////////// ADDED PROPERTIES //////////////////////
 
 // [2] Initialize could be executed once
-rule initializeCouldBeExecutedOnce(env e1, calldataarg args1, env e2, calldataarg args2) {
-
-    require(ghostLastInitializedRevision == 0);
-    require(ghostInitializing == false);
-
-    initialize@withrevert(e1, args1);
-    bool firstCallReverted = lastReverted;
-
-    initialize@withrevert(e2, args2);
-    bool secondCallReverted = lastReverted;
-
-    assert(!firstCallReverted => secondCallReverted);
-}
+use rule initializeCouldBeExecutedOnce;
 
 // [3] Could be initialized with specific pool address only
 rule initializedWithSpecificPoolAddressOnly(
@@ -440,7 +348,8 @@ rule viewersIntegrity(env e) {
     calculateDomainSeparator(e);
 
     assert(
-        RESERVE_TREASURY_ADDRESS() == ghostTreasury
+        getRevisionHarness() == ATOKEN_REVISION()
+        && RESERVE_TREASURY_ADDRESS() == ghostTreasury
         && UNDERLYING_ASSET_ADDRESS() == ghostUnderlyingAsset
         && getVariableDebtToken() == ghostGhoVariableDebtToken
         && getGhoTreasury() == ghostGhoTreasury
@@ -617,16 +526,7 @@ rule possibilityOfTransferOutGhoTokensToTresaury(env e) {
 }
 
 // [16] Domain separator depends on token name
-rule domainSeparatorDepensOnName(env e) {
-    
-    setName1();
-    bytes32 separator1 = calculateDomainSeparator(e);
-
-    setName2();
-    bytes32 separator2 = calculateDomainSeparator(e);
-
-    assert(separator1 != separator2);
-}
+use rule domainSeparatorDepensOnName;
 
 // [17] Only Pool could initialize a communication with GhoToken contract (distributeFeesToTreasury() is an exception)
 rule onlyPoolCanInitializeCommunicationWithGHOToken(env e, method f, calldataarg args) 

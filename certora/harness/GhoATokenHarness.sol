@@ -11,6 +11,10 @@ contract GhoATokenHarness is GhoAToken {
   // Added functions
   //
 
+  function getRevisionHarness() external pure returns (uint256) {
+    return getRevision();
+  }
+
   function getPoolAddress() external view returns (address) {
     return address(POOL);
   }

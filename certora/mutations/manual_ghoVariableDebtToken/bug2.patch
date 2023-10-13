@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..694dec3 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -91,7 +91,7 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     string memory debtTokenSymbol,
+     bytes calldata params
+   ) external override initializer {
+-    require(initializingPool == POOL, Errors.POOL_ADDRESSES_DO_NOT_MATCH);
++    //require(initializingPool == POOL, Errors.POOL_ADDRESSES_DO_NOT_MATCH);
+     _setName(debtTokenName);
+     _setSymbol(debtTokenSymbol);
+     _setDecimals(debtTokenDecimals);
