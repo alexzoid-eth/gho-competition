@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..d9f5bbb 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -189,7 +189,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+     bytes32 r,
+     bytes32 s
+   ) external override {
+-    revert(Errors.OPERATION_NOT_SUPPORTED);
++    /// DeleteExpressionMutation(`revert(Errors.OPERATION_NOT_SUPPORTED)` |==> `assert(true)`) of: `revert(Errors.OPERATION_NOT_SUPPORTED);`
++    assert(true);
+   }
+ 
+   /**

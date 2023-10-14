@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..ed51580 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -423,7 +423,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     uint256 index
+   ) internal override {
+     uint256 amountScaled = amount.rayDiv(index);
+-    require(amountScaled != 0, Errors.INVALID_BURN_AMOUNT);
++    /// RequireMutation(`amountScaled != 0` |==> `true`) of: `require(amountScaled != 0, Errors.INVALID_BURN_AMOUNT);`
++    require(true, Errors.INVALID_BURN_AMOUNT);
+ 
+     uint256 balanceBeforeBurn = balanceOf(user);
+ 

@@ -1,0 +1,14 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..ea67281 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -95,7 +95,8 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+     );
+ 
+     delete _facilitators[facilitatorAddress];
+-    _facilitatorsList.remove(facilitatorAddress);
++    /// DeleteExpressionMutation(`_facilitatorsList.remove(facilitatorAddress)` |==> `assert(true)`) of: `_facilitatorsList.remove(facilitatorAddress);`
++    assert(true);
+ 
+     emit FacilitatorRemoved(facilitatorAddress);
+   }

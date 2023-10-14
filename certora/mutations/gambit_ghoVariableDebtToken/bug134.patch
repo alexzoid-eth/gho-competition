@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..cbc4c7b 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -450,7 +450,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     );
+ 
+     if (balanceIncrease > amount) {
+-      uint256 amountToMint = balanceIncrease - amount;
++      /// SwapArgumentsOperatorMutation(`balanceIncrease - amount` |==> `amount - balanceIncrease`) of: `uint256 amountToMint = balanceIncrease - amount;`
++      uint256 amountToMint = amount - balanceIncrease;
+       emit Transfer(address(0), user, amountToMint);
+       emit Mint(user, user, amountToMint, balanceIncrease, index);
+     } else {

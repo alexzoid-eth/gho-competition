@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..a39587a 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -64,7 +64,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+    * @dev Only AToken can call functions marked by this modifier.
+    */
+   modifier onlyAToken() {
+-    require(_ghoAToken == msg.sender, 'CALLER_NOT_A_TOKEN');
++    /// RequireMutation(`_ghoAToken == msg.sender` |==> `true`) of: `require(_ghoAToken == msg.sender, 'CALLER_NOT_A_TOKEN');`
++    require(true, 'CALLER_NOT_A_TOKEN');
+     _;
+   }
+ 

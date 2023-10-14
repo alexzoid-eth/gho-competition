@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..c2a4ccc 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -154,7 +154,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+    * @param amount The amount getting transferred
+    */
+   function transferUnderlyingTo(address target, uint256 amount) external virtual override onlyPool {
+-    IGhoToken(_underlyingAsset).mint(target, amount);
++    /// DeleteExpressionMutation(`IGhoToken(_underlyingAsset).mint(target, amount)` |==> `assert(true)`) of: `IGhoToken(_underlyingAsset).mint(target, amount);`
++    assert(true);
+   }
+ 
+   /// @inheritdoc IAToken

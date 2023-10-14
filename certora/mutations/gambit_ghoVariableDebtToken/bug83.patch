@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..4ec9973 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -375,7 +375,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     uint256 index
+   ) internal override returns (bool) {
+     uint256 amountScaled = amount.rayDiv(index);
+-    require(amountScaled != 0, Errors.INVALID_MINT_AMOUNT);
++    /// DeleteExpressionMutation(`require(amountScaled != 0, Errors.INVALID_MINT_AMOUNT)` |==> `assert(true)`) of: `require(amountScaled != 0, Errors.INVALID_MINT_AMOUNT);`
++    assert(true);
+ 
+     uint256 previousScaledBalance = super.balanceOf(onBehalfOf);
+     uint256 discountPercent = _ghoUserState[onBehalfOf].discountPercent;

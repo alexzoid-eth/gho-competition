@@ -1,0 +1,14 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..823d6ac 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -51,7 +51,8 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+ 
+     Facilitator storage f = _facilitators[msg.sender];
+     uint256 currentBucketLevel = f.bucketLevel;
+-    uint256 newBucketLevel = currentBucketLevel - amount;
++    /// BinaryOpMutation(`-` |==> `+`) of: `uint256 newBucketLevel = currentBucketLevel - amount;`
++    uint256 newBucketLevel = currentBucketLevel+amount;
+     f.bucketLevel = uint128(newBucketLevel);
+ 
+     _burn(msg.sender, amount);

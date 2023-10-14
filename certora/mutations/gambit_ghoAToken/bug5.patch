@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..749725b 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -69,7 +69,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+   ) external override initializer {
+     require(initializingPool == POOL, Errors.POOL_ADDRESSES_DO_NOT_MATCH);
+     _setName(aTokenName);
+-    _setSymbol(aTokenSymbol);
++    /// DeleteExpressionMutation(`_setSymbol(aTokenSymbol)` |==> `assert(true)`) of: `_setSymbol(aTokenSymbol);`
++    assert(true);
+     _setDecimals(aTokenDecimals);
+ 
+     _treasury = treasury;

@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..91593ae 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -244,7 +244,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+ 
+   /// @inheritdoc IGhoFacilitator
+   function updateGhoTreasury(address newGhoTreasury) external override onlyPoolAdmin {
+-    require(newGhoTreasury != address(0), 'ZERO_ADDRESS_NOT_VALID');
++    /// DeleteExpressionMutation(`require(newGhoTreasury != address(0), 'ZERO_ADDRESS_NOT_VALID')` |==> `assert(true)`) of: `require(newGhoTreasury != address(0), 'ZERO_ADDRESS_NOT_VALID');`
++    assert(true);
+     address oldGhoTreasury = _ghoTreasury;
+     _ghoTreasury = newGhoTreasury;
+     emit GhoTreasuryUpdated(oldGhoTreasury, newGhoTreasury);

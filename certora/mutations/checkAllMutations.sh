@@ -1,4 +1,4 @@
-# Example: checkAllMutations.sh oracle participants
+# Example: ./certora/mutations/checkAllMutations.sh ghoToken gambit
 for f in certora/mutations/$2_$1/bug*.patch
 do
     wildcard=${f##"certora/mutations/$2_$1"/bug}

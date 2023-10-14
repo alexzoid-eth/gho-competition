@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..fdc529e 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -160,7 +160,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     uint256 amount,
+     uint256 index
+   ) external virtual override onlyPool returns (uint256) {
+-    _burnScaled(from, address(0), amount, index);
++    /// DeleteExpressionMutation(`_burnScaled(from, address(0), amount, index)` |==> `assert(true)`) of: `_burnScaled(from, address(0), amount, index);`
++    assert(true);
+     return scaledTotalSupply();
+   }
+ 

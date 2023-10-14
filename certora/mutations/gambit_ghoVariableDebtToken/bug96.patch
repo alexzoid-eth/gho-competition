@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..9982538 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -388,7 +388,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+ 
+     // confirm the amount being borrowed is greater than the discount
+     if (amountScaled > discountScaled) {
+-      _mint(onBehalfOf, (amountScaled - discountScaled).toUint128());
++      /// DeleteExpressionMutation(`_mint(onBehalfOf, (amountScaled - discountScaled).toUint128())` |==> `assert(true)`) of: `_mint(onBehalfOf, (amountScaled - discountScaled).toUint128());`
++      assert(true);
+     } else {
+       _burn(onBehalfOf, (discountScaled - amountScaled).toUint128());
+     }

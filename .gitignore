@@ -20,3 +20,4 @@ lcov.info
 combined-lcov.info
 # certora temp files
 .certora_internal*
+gambit_out

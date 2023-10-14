@@ -1,0 +1,14 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..330ed57 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -86,7 +86,8 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+     address facilitatorAddress
+   ) external onlyRole(FACILITATOR_MANAGER_ROLE) {
+     require(
+-      bytes(_facilitators[facilitatorAddress].label).length > 0,
++      /// SwapArgumentsOperatorMutation(`bytes(_facilitators[facilitatorAddress].label).length > 0` |==> `0 > bytes(_facilitators[facilitatorAddress].label).length`) of: `bytes(_facilitators[facilitatorAddress].label).length > 0,`
++      0 > bytes(_facilitators[facilitatorAddress].label).length,
+       'FACILITATOR_DOES_NOT_EXIST'
+     );
+     require(

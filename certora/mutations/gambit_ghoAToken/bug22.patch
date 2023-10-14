@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..8d0b38c 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -168,7 +168,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+       _ghoVariableDebtToken.decreaseBalanceFromInterest(onBehalfOf, amount);
+     } else {
+       _ghoVariableDebtToken.decreaseBalanceFromInterest(onBehalfOf, balanceFromInterest);
+-      IGhoToken(_underlyingAsset).burn(amount - balanceFromInterest);
++      /// BinaryOpMutation(`-` |==> `+`) of: `IGhoToken(_underlyingAsset).burn(amount - balanceFromInterest);`
++      IGhoToken(_underlyingAsset).burn(amount+balanceFromInterest);
+     }
+   }
+ 

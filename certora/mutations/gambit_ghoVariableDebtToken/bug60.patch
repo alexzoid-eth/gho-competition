@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..4337043 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -275,7 +275,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     uint256 balanceIncrease;
+     uint256 discountScaled;
+ 
+-    if (senderPreviousScaledBalance > 0) {
++    /// IfStatementMutation(`senderPreviousScaledBalance > 0` |==> `false`) of: `if (senderPreviousScaledBalance > 0) {`
++    if (false) {
+       (balanceIncrease, discountScaled) = _accrueDebtOnAction(
+         sender,
+         senderPreviousScaledBalance,

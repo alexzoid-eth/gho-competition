@@ -164,6 +164,8 @@ hook Sstore currentContract._underlyingAsset address val STORAGE {
 // Ghost copy of `_ghoVariableDebtToken`
 //
 
+ghost bool ghostGhoVariableDebtTokenTouched;
+
 ghost address ghostGhoVariableDebtToken {
     init_state axiom ghostGhoVariableDebtToken == 0;
 }
@@ -174,11 +176,14 @@ hook Sload address val currentContract._ghoVariableDebtToken STORAGE {
 
 hook Sstore currentContract._ghoVariableDebtToken address val STORAGE {
     ghostGhoVariableDebtToken = val;
+    ghostGhoVariableDebtTokenTouched = true;
 }
 
 //
 // Ghost copy of `_ghoTreasury`
 //
+
+ghost bool ghostGhoTreasuryTouched;
 
 ghost address ghostGhoTreasury {
     init_state axiom ghostGhoTreasury == 0;
@@ -190,6 +195,7 @@ hook Sload address val currentContract._ghoTreasury STORAGE {
 
 hook Sstore currentContract._ghoTreasury address val STORAGE {
     ghostGhoTreasury = val;
+    ghostGhoTreasuryTouched = true;
 }
 
 //
@@ -371,13 +377,11 @@ rule onlyPoolAdminCouldUpdateCriticalAddresses(env e, method f, calldataarg args
     f@withrevert(e, args);
     bool reverted = lastReverted;
 
-    bool ghoTreasuryChanged = ghoTreasuryBefore != ghostGhoTreasury; 
-    bool ghoVariableDebtTokenChanged = ghoVariableDebtTokenBefore != ghostGhoVariableDebtToken;
-    bool incentivesControllerChanged = incentivesControllerBefore != ghostIncentivesController;
+    bool changed = ghoTreasuryBefore != ghostGhoTreasury
+        || ghoVariableDebtTokenBefore != ghostGhoVariableDebtToken
+        || incentivesControllerBefore != ghostIncentivesController;
 
-    assert((!reverted && (ghoTreasuryChanged || ghoVariableDebtTokenChanged || incentivesControllerChanged)) 
-        => isPoolAdmin(e, e.msg.sender)
-    );
+    assert(!reverted && changed => isPoolAdmin(e, e.msg.sender));
 }
 
 // [8] VariableDebtToken could be set once
@@ -392,23 +396,42 @@ rule variableDebtTokenSetOnlyOnce(env e, method f, calldataarg args)
     assert(!lastReverted => before == ghostGhoVariableDebtToken);
 }
 
-// [6] VariableDebtToken could not be set to zero
-rule variableDebtTokenNotSetToZero(env e, address ghoVariableDebtToken) {
-
-    setVariableDebtToken(e, ghoVariableDebtToken);
-
-    assert(ghostGhoVariableDebtToken != 0);
-}
-
-// [9] Treasury could not be set to zero (expect in `initialize()`)
-rule treasuryNotSetToZero(env e, method f, calldataarg args) 
+// [6,9] System variables (ghoTreasury, ghoVariableDebtToken) could not be set to zero (expect in `initialize()`)
+rule systemVariablesNotSetToZero(env e, method f, calldataarg args) 
     filtered { f -> !VIEW_FUNCTIONS(f) && !INITIALIZE_FUNCTION(f) } {
 
-    address before = ghostGhoTreasury; 
+    require(ghostGhoTreasuryTouched == false);
+    require(ghostGhoVariableDebtTokenTouched == false);
 
     f@withrevert(e, args);
+    bool reverted = lastReverted;
 
-    assert((!lastReverted && before != ghostGhoTreasury) => ghostGhoTreasury != 0);
+    assert(!reverted && ghostGhoTreasuryTouched => ghostGhoTreasury != 0);
+    assert(!reverted && ghostGhoVariableDebtTokenTouched => ghostGhoVariableDebtToken != 0);
+}
+
+// [28] GhoTreasury could be modified
+rule possibilityGhoTreasuryModify(env e, calldataarg args) {
+    
+    address before = ghostGhoTreasury;
+
+    updateGhoTreasury(e, args);
+
+    address after = ghostGhoTreasury;
+
+    satisfy(before != after && after != 0);
+}
+
+// [29] GhoVariableDebtToken could be modified
+rule possibilityGhoVariableDebtTokenModify(env e, calldataarg args) {
+    
+    address before = ghostGhoVariableDebtToken;
+
+    setVariableDebtToken(e, args);
+
+    address after = ghostGhoVariableDebtToken;
+
+    satisfy(before != after && after != 0);
 }
 
 // [10] Stuck tokens could be rescued only by pool admin

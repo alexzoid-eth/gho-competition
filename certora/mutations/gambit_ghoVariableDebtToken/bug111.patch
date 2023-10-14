@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..cbbb8c1 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -436,7 +436,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+       index
+     );
+ 
+-    if (amount == balanceBeforeBurn) {
++    /// IfStatementMutation(`amount == balanceBeforeBurn` |==> `true`) of: `if (amount == balanceBeforeBurn) {`
++    if (true) {
+       _burn(user, previousScaledBalance.toUint128());
+     } else {
+       _burn(user, (amountScaled + discountScaled).toUint128());

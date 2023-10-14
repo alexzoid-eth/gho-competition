@@ -1,0 +1,14 @@
+diff --git a/src/contracts/gho/GhoToken.sol b/src/contracts/gho/GhoToken.sol
+index 744d76b..a1362d0 100644
+--- a/src/contracts/gho/GhoToken.sol
++++ b/src/contracts/gho/GhoToken.sol
+@@ -38,7 +38,8 @@ contract GhoToken is ERC20, AccessControl, IGhoToken {
+     uint256 currentBucketLevel = f.bucketLevel;
+     uint256 newBucketLevel = currentBucketLevel + amount;
+     require(f.bucketCapacity >= newBucketLevel, 'FACILITATOR_BUCKET_CAPACITY_EXCEEDED');
+-    f.bucketLevel = uint128(newBucketLevel);
++    /// DeleteExpressionMutation(`f.bucketLevel = uint128(newBucketLevel)` |==> `assert(true)`) of: `f.bucketLevel = uint128(newBucketLevel);`
++    assert(true);
+ 
+     _mint(account, amount);
+ 

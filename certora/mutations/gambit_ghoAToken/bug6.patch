@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..7b6c770 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -70,7 +70,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+     require(initializingPool == POOL, Errors.POOL_ADDRESSES_DO_NOT_MATCH);
+     _setName(aTokenName);
+     _setSymbol(aTokenSymbol);
+-    _setDecimals(aTokenDecimals);
++    /// DeleteExpressionMutation(`_setDecimals(aTokenDecimals)` |==> `assert(true)`) of: `_setDecimals(aTokenDecimals);`
++    assert(true);
+ 
+     _treasury = treasury;
+     _underlyingAsset = underlyingAsset;

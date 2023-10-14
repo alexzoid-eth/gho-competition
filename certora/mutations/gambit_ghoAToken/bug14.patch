@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..8bfb70b 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -112,7 +112,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+ 
+   /// @inheritdoc IAToken
+   function mintToTreasury(uint256 amount, uint256 index) external virtual override onlyPool {
+-    revert(Errors.OPERATION_NOT_SUPPORTED);
++    /// DeleteExpressionMutation(`revert(Errors.OPERATION_NOT_SUPPORTED)` |==> `assert(true)`) of: `revert(Errors.OPERATION_NOT_SUPPORTED);`
++    assert(true);
+   }
+ 
+   /// @inheritdoc IAToken

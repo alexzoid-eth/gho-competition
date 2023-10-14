@@ -675,6 +675,17 @@ rule integrityOfBurn_userIsolation(env e, address otherUser, address targetUser)
     assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
 }
 
+// Proves the balance will be zero when burn whole dept
+rule burnAllDebtReturnsZeroDebt(env e, address user) {
+    
+    uint256 _variableDebt = balanceOf(e, user);
+    
+    burn(e, user, _variableDebt, indexAtTimestamp(e.block.timestamp));
+    
+    uint256 variableDebt_ = balanceOf(e, user);
+    assert(variableDebt_ == 0);
+}
+
 //
 // integrity of updateDiscountDistribution()
 // 
@@ -761,7 +772,7 @@ rule integrityOfRebalanceUserDiscountPercent_userIsolation(env e, address otherU
 // Integrity of balanceOf()
 //
 
-// Proves that a user with 100% discounts has a fixed balance over time
+// [19] Proves that a user with 100% discounts has a fixed balance over time
 rule integrityOfBalanceOf_fullDiscount(env e1, env e2, address user) {
     
     require(getUserDiscountRate(user) == MAX_DISCOUNT()); // 100% discount
@@ -769,7 +780,7 @@ rule integrityOfBalanceOf_fullDiscount(env e1, env e2, address user) {
     assert(balanceOf(e1, user) == balanceOf(e2, user));
 }
 
-// Proves that a user's balance, with no discount, is equal to rayMul(scaledBalance, current index)
+// [20-21] Proves that a user's balance, with no discount, is equal to rayMul(scaledBalance, current index)
 rule integrityOfBalanceOf_noDiscount(env e, address user) {
 
     requireInvariant userIndexSetup(e, user); // added (47 -> 13 sec)
@@ -782,24 +793,13 @@ rule integrityOfBalanceOf_noDiscount(env e, address user) {
     assert(to_mathint(balanceOf(e, user)) == expectedBalance);
 }
 
-// Proves the a user with zero scaled balance has a zero balance
+// [18] Proves the a user with zero scaled balance has a zero balance
 rule integrityOfBalanceOf_zeroScaledBalance(env e, address user) {
 
     uint256 scaledBalance = scaledBalanceOf(user);
     require(scaledBalance == 0);
 
     assert(balanceOf(e, user) == 0);
-}
-
-// Proves the balance will be zero when burn whole dept
-rule burnAllDebtReturnsZeroDebt(env e, address user) {
-    
-    uint256 _variableDebt = balanceOf(e, user);
-    
-    burn(e, user, _variableDebt, indexAtTimestamp(e.block.timestamp));
-    
-    uint256 variableDebt_ = balanceOf(e, user);
-    assert(variableDebt_ == 0);
 }
 
 ///////////////// ADDED PROPERTIES //////////////////////
@@ -986,3 +986,4 @@ rule onlyATokenCouldDecreaseAccumulatedDebtInterest(env e, method f, calldataarg
 
     assert(before > after => e.msg.sender == ghostGhoAToken);
 }
+

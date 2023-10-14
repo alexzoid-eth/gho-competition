@@ -1,10 +1,14 @@
 #!/bin/bash
 
-# Gambit. Start from git root directory. Example:
-# gambit mutate -f ./contracts/rewards/RewardsDistributor.sol --solc_remappings @aave=node_modules/@aave
+# 1. Create mutations with Gambit. Start from git root directory. Example:
+# rm -rf ./gambit_out && gambit mutate -f ./src/contracts/gho/GhoToken.sol --solc_remappings @openzeppelin=./node_modules/@openzeppelin
+# rm -rf ./gambit_out && gambit mutate -f ./src/contracts/facilitators/aave/tokens/GhoAToken.sol --solc_remappings @openzeppelin=./node_modules/@openzeppelin --solc_remappings @aave=./node_modules/@aave
+# rm -rf ./gambit_out && gambit mutate -f ./src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol --solc_remappings @openzeppelin=./node_modules/@openzeppelin --solc_remappings @aave=./node_modules/@aave
 
-# Create bugs. Start from git root directory. Example:
-# certora/mutations/gambitToMutations.sh contracts/rewards/RewardsDistributor.sol RewardsDistributor_181
+# 2. Copy mutations from gambit directory to mutations directory. Start from git root directory. Example:
+# ./certora/mutations/gambitToMutations.sh src/contracts/gho/GhoToken.sol gambit_ghoToken
+# ./certora/mutations/gambitToMutations.sh src/contracts/facilitators/aave/tokens/GhoAToken.sol gambit_ghoAToken
+# ./certora/mutations/gambitToMutations.sh src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol gambit_ghoVariableDebtToken
 
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 2 ]; then
@@ -19,18 +23,18 @@ bugs="$2"
 dest_dir="certora/mutations/${bugs}"
 mkdir -p "${dest_dir}"
 
-# Iterate over each directory in the `gambit_out/mutants/*` path
-for dir in ./gambit_out/mutants/*/"${sol_path}"; do
-  # Extract the mutant number (X)
-  mutant_number=$(basename $(dirname $(dirname $(dirname "${dir}"))))
+# Determine the maximum mutant number
+max_num=$(ls ./gambit_out/mutants/ | sort -n | tail -1)
 
+# Iterate over each directory number from 1 to max_num
+for ((mutant_number=1; mutant_number<=max_num; mutant_number++)); do
+    
   # Copy the file to the sol_path
+  dir="./gambit_out/mutants/${mutant_number}/${sol_path}"
   cp "${dir}" "${sol_path}"
 
   # Execute git diff and store the result in the patch file
-  git diff certora -- "${sol_path}" > "${dest_dir}/bug${mutant_number}.patch"
+  git diff certora/competition -- "${sol_path}" > "${dest_dir}/bug${mutant_number}.patch"
+
+
 done
-
-git restore "${sol_path}" 
-
-echo "Operation complete."

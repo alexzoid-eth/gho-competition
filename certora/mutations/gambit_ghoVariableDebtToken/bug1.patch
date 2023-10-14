@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..38b0094 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -56,7 +56,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+    * @dev Only discount token can call functions marked by this modifier.
+    */
+   modifier onlyDiscountToken() {
+-    require(address(_discountToken) == msg.sender, 'CALLER_NOT_DISCOUNT_TOKEN');
++    /// DeleteExpressionMutation(`require(address(_discountToken) == msg.sender, 'CALLER_NOT_DISCOUNT_TOKEN')` |==> `assert(true)`) of: `require(address(_discountToken) == msg.sender, 'CALLER_NOT_DISCOUNT_TOKEN');`
++    assert(true);
+     _;
+   }
+ 

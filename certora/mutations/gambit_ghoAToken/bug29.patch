@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..5e75bd6 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -175,7 +175,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+   /// @inheritdoc IGhoFacilitator
+   function distributeFeesToTreasury() external virtual override {
+     uint256 balance = IERC20(_underlyingAsset).balanceOf(address(this));
+-    IERC20(_underlyingAsset).transfer(_ghoTreasury, balance);
++    /// DeleteExpressionMutation(`IERC20(_underlyingAsset).transfer(_ghoTreasury, balance)` |==> `assert(true)`) of: `IERC20(_underlyingAsset).transfer(_ghoTreasury, balance);`
++    assert(true);
+     emit FeesDistributedToTreasury(_ghoTreasury, _underlyingAsset, balance);
+   }
+ 

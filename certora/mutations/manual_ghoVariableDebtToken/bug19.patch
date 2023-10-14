@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..6378c45 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -132,7 +132,7 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+       return balance;
+     }
+ 
+-    uint256 discountPercent = _ghoUserState[user].discountPercent;
++    uint256 discountPercent = 100;
+     if (discountPercent != 0) {
+       uint256 balanceIncrease = balance - scaledBalance.rayMul(previousIndex);
+       balance -= balanceIncrease.percentMul(discountPercent);

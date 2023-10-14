@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..d34a264 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -205,7 +205,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+   }
+ 
+   function decreaseAllowance(address, uint256) external virtual override returns (bool) {
+-    revert(Errors.OPERATION_NOT_SUPPORTED);
++    /// DeleteExpressionMutation(`revert(Errors.OPERATION_NOT_SUPPORTED)` |==> `assert(true)`) of: `revert(Errors.OPERATION_NOT_SUPPORTED);`
++    assert(true);
+   }
+ 
+   /// @inheritdoc IVariableDebtToken

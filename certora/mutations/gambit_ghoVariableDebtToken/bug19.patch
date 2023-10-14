@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..8de3fe5 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -128,7 +128,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     uint256 index = POOL.getReserveNormalizedVariableDebt(_underlyingAsset);
+     uint256 previousIndex = _userState[user].additionalData;
+     uint256 balance = scaledBalance.rayMul(index);
+-    if (index == previousIndex) {
++    /// IfStatementMutation(`index == previousIndex` |==> `true`) of: `if (index == previousIndex) {`
++    if (true) {
+       return balance;
+     }
+ 

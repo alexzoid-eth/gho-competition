@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoAToken.sol b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+index 8cb1587..5282206 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoAToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoAToken.sol
+@@ -164,7 +164,8 @@ contract GhoAToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base
+     uint256 amount
+   ) external virtual override onlyPool {
+     uint256 balanceFromInterest = _ghoVariableDebtToken.getBalanceFromInterest(onBehalfOf);
+-    if (amount <= balanceFromInterest) {
++    /// SwapArgumentsOperatorMutation(`amount <= balanceFromInterest` |==> `balanceFromInterest <= amount`) of: `if (amount <= balanceFromInterest) {`
++    if (balanceFromInterest <= amount) {
+       _ghoVariableDebtToken.decreaseBalanceFromInterest(onBehalfOf, amount);
+     } else {
+       _ghoVariableDebtToken.decreaseBalanceFromInterest(onBehalfOf, balanceFromInterest);

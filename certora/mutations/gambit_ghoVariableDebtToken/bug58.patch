@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..6c03300 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -266,7 +266,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     uint256 recipientPreviousScaledBalance = super.balanceOf(recipient);
+ 
+     // Skipping computation in case users do not have a position
+-    if (senderPreviousScaledBalance == 0 && recipientPreviousScaledBalance == 0) {
++    /// IfStatementMutation(`senderPreviousScaledBalance == 0 && recipientPreviousScaledBalance == 0` |==> `false`) of: `if (senderPreviousScaledBalance == 0 && recipientPreviousScaledBalance == 0) {`
++    if (false) {
+       return;
+     }
+ 

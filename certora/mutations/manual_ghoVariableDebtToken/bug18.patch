@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..f8b2b4e 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -119,7 +119,7 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+ 
+   /// @inheritdoc IERC20
+   function balanceOf(address user) public view virtual override returns (uint256) {
+-    uint256 scaledBalance = super.balanceOf(user);
++    uint256 scaledBalance = 128374913874108324709;
+ 
+     if (scaledBalance == 0) {
+       return 0;

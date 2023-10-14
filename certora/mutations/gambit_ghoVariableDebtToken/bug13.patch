@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..fe521ce 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -96,7 +96,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+     _setSymbol(debtTokenSymbol);
+     _setDecimals(debtTokenDecimals);
+ 
+-    _underlyingAsset = underlyingAsset;
++    /// DeleteExpressionMutation(`_underlyingAsset = underlyingAsset` |==> `assert(true)`) of: `_underlyingAsset = underlyingAsset;`
++    assert(true);
+     _incentivesController = incentivesController;
+ 
+     _domainSeparator = _calculateDomainSeparator();

@@ -1,0 +1,14 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..ef22590 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -243,7 +243,8 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+ 
+   /// @inheritdoc IGhoVariableDebtToken
+   function updateDiscountToken(address newDiscountToken) external override onlyPoolAdmin {
+-    require(newDiscountToken != address(0), 'ZERO_ADDRESS_NOT_VALID');
++    /// RequireMutation(`newDiscountToken != address(0)` |==> `false`) of: `require(newDiscountToken != address(0), 'ZERO_ADDRESS_NOT_VALID');`
++    require(false, 'ZERO_ADDRESS_NOT_VALID');
+     address oldDiscountToken = address(_discountToken);
+     _discountToken = IERC20(newDiscountToken);
+     emit DiscountTokenUpdated(oldDiscountToken, newDiscountToken);
