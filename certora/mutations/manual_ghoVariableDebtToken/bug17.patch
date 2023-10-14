@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..6f5494a 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -329,7 +329,7 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+   }
+ 
+   /// @inheritdoc IGhoVariableDebtToken
+-  function decreaseBalanceFromInterest(address user, uint256 amount) external override onlyAToken {
++  function decreaseBalanceFromInterest(address user, uint256 amount) external override {
+     _ghoUserState[user].accumulatedDebtInterest = (_ghoUserState[user].accumulatedDebtInterest -
+       amount).toUint128();
+   }

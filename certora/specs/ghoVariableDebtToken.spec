@@ -23,7 +23,7 @@ methods{
     function getUserAccumulatedDebtInterest(address user) external returns (uint256) envfree;
     function scaledBalanceOfToBalanceOf(uint256 bal) internal returns (uint256);
     function getBalanceOfDiscountToken(address user) external returns (uint256);
-    function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
+    //function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
     function rayDiv(uint256 x, uint256 y) external returns (uint256) envfree;
     // added
     function getRevisionHarness() external returns (uint256) envfree;
@@ -86,11 +86,11 @@ methods{
     function _GhoDiscountRateStrategy.calculateDiscountRate(
         uint256 debtBalance,uint256 discountTokenBalance) external returns (uint256) envfree;
 
+    // IncentivesController
+    function _.handleAction(address account, uint256 oldTotalSupply, uint256 oldAccountBalance) external => NONDET;
+
     // Pool
     function _.ADDRESSES_PROVIDER() external => CONSTANT;
-
-    // IncentivesController
-    function _.handleAction(address account, uint256 oldTotalSupply, uint256 oldAccountBalance) external => CONSTANT;
 
     // PoolAddressesProvider
     function _.getACLManager() external => CONSTANT;
@@ -143,18 +143,6 @@ definition EXCLUDED_FUNCTIONS(method f) returns bool =
     DISALLOWED_FUNCTIONS(f) || HARNESS_FUNCTIONS(f) || VIEW_FUNCTIONS(f);
 
 ////////////////// FUNCTIONS //////////////////////
-
-function setUp() {
-
-    // TODO: Cannot make work dynamically linking, several rules are violated
-    // Don't statically link variables that could be changed externally
-
-    // "GhoVariableDebtTokenHarness:_discountToken=DummyERC20WithTimedBalanceOf"
-    // require(ghostDiscountToken == _DummyERC20WithTimedBalanceOf);
-
-    // "GhoVariableDebtTokenHarness:_discountRateStrategy=GhoDiscountRateStrategy"
-    // require(ghostDiscountRateStrategy == _GhoDiscountRateStrategy);
-}
 
 //
 // CVL implementation of rayMul
@@ -210,6 +198,10 @@ ghost mapping(uint256 => uint256) index_ghost {
 // Ghost copy of `_ghoAToken`
 //
 
+ghost bool ghostGhoATokenTouched {
+    init_state axiom ghostGhoATokenTouched == false;
+}
+
 ghost address ghostGhoAToken {
     init_state axiom ghostGhoAToken == 0;
 }
@@ -220,6 +212,7 @@ hook Sload address val currentContract._ghoAToken STORAGE {
 
 hook Sstore currentContract._ghoAToken address val STORAGE {
     ghostGhoAToken = val;
+    ghostGhoATokenTouched = true;
 }
 
 //
@@ -422,14 +415,16 @@ rule nonMintFunctionCantIncreaseScaledBalance(method f)
 }
 
 // Proves that debt tokens aren't transferable
-rule debtTokenIsNotTransferable(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
-    address user1;
-    address user2;
+rule debtTokenIsNotTransferable(method f, env e, address user1, address user2) 
+    filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
+
+    requireInvariant userIndexSetup(e, user1); // added (133 -> 96 sec)
+    requireInvariant userIndexSetup(e, user2); 
+
     require(user1 != user2);
     uint256 scaledBalanceBefore1 = scaledBalanceOf(user1);
     uint256 scaledBalanceBefore2 = scaledBalanceOf(user2);
 
-    env e;
     calldataarg args;
     f(e,args);
 
@@ -470,6 +465,7 @@ rule onlyCertainFunctionsCanModifyScaledBalance(method f) filtered { f-> !EXCLUD
 // Proves that only a call to decreaseBalanceFromInterest will decrease the user's 
 //  accumulated interest listing.
 rule userAccumulatedDebtInterestWontDecrease(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
+    
     address user;
     uint256 ts1;
     uint256 ts2;
@@ -480,9 +476,9 @@ rule userAccumulatedDebtInterestWontDecrease(method f) filtered { f-> !EXCLUDED_
     requireInvariant discountCantExceed100Percent(user);
     uint256 initAccumulatedInterest = getUserAccumulatedDebtInterest(user);
     
-    env e2 = envAtTimestamp(ts2);
+    env e = envAtTimestamp(ts2);
     calldataarg args;
-    f(e2,args);
+    f(e, args);
     
     uint256 finAccumulatedInterest = getUserAccumulatedDebtInterest(user);
     assert(initAccumulatedInterest > finAccumulatedInterest => f.selector 
@@ -490,12 +486,11 @@ rule userAccumulatedDebtInterestWontDecrease(method f) filtered { f-> !EXCLUDED_
 }
 
 // Proves that a user can't nullify its debt without calling burn
-rule userCantNullifyItsDebt(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
+rule userCantNullifyItsDebt(method f, env e, env e2, address user) 
+    filtered { f-> !EXCLUDED_FUNCTIONS(f) } { // added
 
-    address user;
-    env e;
-    env e2;
     require(getUserCurrentIndex(user) == indexAtTimestamp(e.block.timestamp));
+    
     requireInvariant discountCantExceed100Percent(user);
     uint256 balanceBeforeOp = balanceOf(e, user);
     
@@ -513,14 +508,13 @@ rule userCantNullifyItsDebt(method f) filtered { f-> !EXCLUDED_FUNCTIONS(f) } { 
 //
 
 // Proves that after calling mint, the user's discount rate is up to date
-rule integrityOfMint_updateDiscountRate() {
+rule integrityOfMint_updateDiscountRate(env e, address user1, address user2) {
 
-    address user1;
-    address user2;
-    env e;
+    requireInvariant userIndexSetup(e, user1); // added (895 -> 498 sec)
+    requireInvariant userIndexSetup(e, user2);
+
     uint256 amount;
     uint256 index = indexAtTimestamp(e.block.timestamp);
-
     mint(e, user1, user2, amount, index);
     
     uint256 debtBalance = balanceOf(e, user2);
@@ -530,22 +524,21 @@ rule integrityOfMint_updateDiscountRate() {
 }
 
 // Proves the after calling mint, the user's state is updated with the recent index value
-rule integrityOfMint_updateIndex() {
-    address user1;
-    address user2;
-    env e;
+rule integrityOfMint_updateIndex(env e, address user1, address user2) {
+
+    requireInvariant userIndexSetup(e, user1); // added (57 sec -> 8 sec)
+    requireInvariant userIndexSetup(e, user2); 
+
     uint256 amount;
-    uint256 index;
-    
+    uint256 index;    
     mint(e, user1, user2, amount, index);
 
     assert(getUserCurrentIndex(user2) == index);
 }
 
 // Proves that on a fixed index calling mint(user, amount) will increase the user's scaled balance by amount. 
-rule integrityOfMint_updateScaledBalance_fixedIndex() {
-    address user;
-    env e;
+rule integrityOfMint_updateScaledBalance_fixedIndex(env e, address user) {
+
     uint256 balanceBefore = balanceOf(e, user);
     uint256 scaledBalanceBefore = scaledBalanceOf(user);
     address caller;
@@ -563,15 +556,13 @@ rule integrityOfMint_updateScaledBalance_fixedIndex() {
 }
 
 // Proves that mint can't effect other user's scaled balance
-rule integrityOfMint_userIsolation() {
-    address otherUser;
+rule integrityOfMint_userIsolation(env e, address otherUser, address targetUser) {
+
     uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
-    env e;
+
     uint256 amount;
     uint256 index;
-    address targetUser;
     address caller;
-
     mint(e, caller, targetUser, amount, index);
     
     uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
@@ -580,39 +571,35 @@ rule integrityOfMint_userIsolation() {
 
 // Proves that when calling mint, the user's balance (as reported by GhoVariableDebtToken::balanceOf) 
 //  will increase if the call is made on bahalf of the user.
-rule onlyMintForUserCanIncreaseUsersBalance() {
+rule onlyMintForUserCanIncreaseUsersBalance(env e, address user) {
 
-    address user1;
-    env e;
-    require(getUserCurrentIndex(user1) == indexAtTimestamp(e.block.timestamp));
+    require(getUserCurrentIndex(user) == indexAtTimestamp(e.block.timestamp));
     
-    uint256 finBalanceBeforeMint = balanceOf(e, user1);
+    uint256 finBalanceBeforeMint = balanceOf(e, user);
     uint256 amount;
-    mint(e, user1, user1, amount, indexAtTimestamp(e.block.timestamp));
-    uint256 finBalanceAfterMint = balanceOf(e, user1);
+    mint(e, user, user, amount, indexAtTimestamp(e.block.timestamp));
+    uint256 finBalanceAfterMint = balanceOf(e, user);
 
     assert(finBalanceAfterMint != finBalanceBeforeMint);
 }
 
 // Checking atoken alone (from VariableDebtToken.spec)
-rule integrityMint_atoken(address a, uint256 x) {
-    env e;
-    address delegatedUser;
+rule integrityMint_atoken(env e, address user, address delegatedUser, uint256 x) {
+
+    requireInvariant userIndexSetup(e, user); // added (104 sec -> 9 sec)
+    requireInvariant userIndexSetup(e, delegatedUser); // added
+
     uint256 index = indexAtTimestamp(e.block.timestamp);
-    uint256 underlyingBalanceBefore = balanceOf(e, a);
-    uint256 atokenBalanceBefore = scaledBalanceOf(a);
+    uint256 underlyingBalanceBefore = balanceOf(e, user);
+    uint256 atokenBalanceBefore = scaledBalanceOf(user);
     uint256 totalATokenSupplyBefore = scaledTotalSupply(e);
-    mint(e, delegatedUser, a, x, index);
+    mint(e, delegatedUser, user, x, index);
     
-    uint256 underlyingBalanceAfter = balanceOf(e, a);
-    uint256 atokenBalanceAfter = scaledBalanceOf(a);
+    uint256 underlyingBalanceAfter = balanceOf(e, user);
+    uint256 atokenBalanceAfter = scaledBalanceOf(user);
     uint256 totalATokenSupplyAfter = scaledTotalSupply(e);
 
-    assert(atokenBalanceAfter - atokenBalanceBefore 
-        == totalATokenSupplyAfter - totalATokenSupplyBefore);
-    //assert totalATokenSupplyAfter > totalATokenSupplyBefore;
-    //assert bounded_error_eq(underlyingBalanceAfter, underlyingBalanceBefore+x, 1, index);
-    // assert balanceAfter == balancebefore+x;
+    assert(atokenBalanceAfter - atokenBalanceBefore == totalATokenSupplyAfter - totalATokenSupplyBefore);
 }
 
 //
@@ -620,10 +607,10 @@ rule integrityMint_atoken(address a, uint256 x) {
 //
 
 // Proves that after calling burn, the user's discount rate is up to date
-rule integrityOfBurn_updateDiscountRate() {
+rule integrityOfBurn_updateDiscountRate(env e, address user) {
 
-    address user;
-    env e;
+    requireInvariant userIndexSetup(e, user); // added (1467 -> 313 sec)
+
     uint256 amount;
     uint256 index = indexAtTimestamp(e.block.timestamp);
     
@@ -637,9 +624,8 @@ rule integrityOfBurn_updateDiscountRate() {
 }
 
 // Proves the after calling burn, the user's state is updated with the recent index value
-rule integrityOfBurn_updateIndex() {
-    address user;
-    env e;
+rule integrityOfBurn_updateIndex(env e, address user) {
+
     uint256 amount;
     uint256 index;
     
@@ -649,22 +635,19 @@ rule integrityOfBurn_updateIndex() {
 }
 
 // Proves that calling burn with 0 amount doesn't change the user's balance (from VariableDebtToken.spec)
-rule burnZeroDoesntChangeBalance(address u, uint256 index) {
+rule burnZeroDoesntChangeBalance(env e, address user, uint256 index) {
 
-    env e;
-    uint256 balanceBefore = balanceOf(e, u);
+    uint256 balanceBefore = balanceOf(e, user);
     
-    burn@withrevert(e, u, 0, index);
+    burn@withrevert(e, user, 0, index);
 
-    uint256 balanceAfter = balanceOf(e, u);
+    uint256 balanceAfter = balanceOf(e, user);
     assert balanceBefore == balanceAfter;
 }
 
 // Proves a concrete case of repaying the full debt that ends with a zero balance
-rule integrityOfBurn_fullRepay_concrete() {
+rule integrityOfBurn_fullRepay_concrete(env e, address user) {
 
-    env e;
-    address user;
     uint256 currentDebt = balanceOf(e, user);
     uint256 index = indexAtTimestamp(e.block.timestamp);
 
@@ -680,15 +663,13 @@ rule integrityOfBurn_fullRepay_concrete() {
 }
 
 // Proves that burn can't effect other user's scaled balance
-rule integrityOfBurn_userIsolation() {
-    address otherUser;
+rule integrityOfBurn_userIsolation(env e, address otherUser, address targetUser) {
+    
     uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
-    env e;
+
     uint256 amount;
     uint256 index;
-    address targetUser;
-    
-    burn(e,targetUser, amount, index);
+    burn(e, targetUser, amount, index);
 
     uint256 scaledBalanceAfter = scaledBalanceOf(otherUser);
     assert(scaledBalanceAfter != scaledBalanceBefore => otherUser == targetUser);
@@ -699,13 +680,13 @@ rule integrityOfBurn_userIsolation() {
 // 
 
 // Proves the after calling updateDiscountDistribution, the user's state is updated with the recent index value
-rule integrityOfUpdateDiscountDistribution_updateIndex() {
+rule integrityOfUpdateDiscountDistribution_updateIndex(env e, address sender, address recipient) {
 
-    address sender;
-    address recipient;
+    requireInvariant userIndexSetup(e, sender); // added (37 sec -> 8 sec)
+    requireInvariant userIndexSetup(e, recipient); // added
+
     uint256 senderDiscountTokenBalance;
     uint256 recipientDiscountTokenBalance;
-    env e;
     uint256 amount;
     uint256 index = indexAtTimestamp(e.block.timestamp);
     
@@ -717,11 +698,11 @@ rule integrityOfUpdateDiscountDistribution_updateIndex() {
 }
 
 // Proves that updateDiscountDistribution can't effect other user's scaled balance
-rule integrityOfUpdateDiscountDistribution_userIsolation() {
-    address otherUser;
-    uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
+rule integrityOfUpdateDiscountDistribution_userIsolation(env e, address otherUser) {
+    
+    requireInvariant userIndexSetup(e, otherUser); // added (14 sec -> 6 sec)
 
-    env e;
+    uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
     uint256 amount;
     uint256 senderDiscountTokenBalance;
     uint256 recipientDiscountTokenBalance;
@@ -741,10 +722,9 @@ rule integrityOfUpdateDiscountDistribution_userIsolation() {
 //
 
 // Proves that after calling rebalanceUserDiscountPercent, the user's discount rate is up to date
-rule integrityOfRebalanceUserDiscountPercent_updateDiscountRate() {
+rule integrityOfRebalanceUserDiscountPercent_updateDiscountRate(env e, address user) {
 
-    address user;
-    env e;
+    requireInvariant userIndexSetup(e, user); // added (664 -> 395 sec)
 
     rebalanceUserDiscountPercent(e, user);
     
@@ -753,10 +733,9 @@ rule integrityOfRebalanceUserDiscountPercent_updateDiscountRate() {
 }
 
 // Proves that after calling rebalanceUserDiscountPercent, the user's state is updated with the recent index value
-rule integrityOfRebalanceUserDiscountPercent_updateIndex() {
-    
-    address user;
-    env e;
+rule integrityOfRebalanceUserDiscountPercent_updateIndex(env e, address user) {
+
+    requireInvariant userIndexSetup(e, user); // added (20 -> 6 sec)
 
     rebalanceUserDiscountPercent(e, user);
 
@@ -765,11 +744,12 @@ rule integrityOfRebalanceUserDiscountPercent_updateIndex() {
 }
 
 // Proves that rebalanceUserDiscountPercent can't effect other user's scaled balance
-rule integrityOfRebalanceUserDiscountPercent_userIsolation() {
-    address otherUser;
+rule integrityOfRebalanceUserDiscountPercent_userIsolation(env e, address otherUser, address targetUser) {
+    
+    requireInvariant userIndexSetup(e, otherUser); // added (32 -> 16 sec)
+    requireInvariant userIndexSetup(e, targetUser); // added
+
     uint256 scaledBalanceBefore = scaledBalanceOf(otherUser);
-    env e;
-    address targetUser;
 
     rebalanceUserDiscountPercent(e, targetUser);
     
@@ -783,16 +763,18 @@ rule integrityOfRebalanceUserDiscountPercent_userIsolation() {
 
 // Proves that a user with 100% discounts has a fixed balance over time
 rule integrityOfBalanceOf_fullDiscount(env e1, env e2, address user) {
-    require(getUserDiscountRate(user) == MAX_DISCOUNT()); //100%
+    
+    require(getUserDiscountRate(user) == MAX_DISCOUNT()); // 100% discount
+    
     assert(balanceOf(e1, user) == balanceOf(e2, user));
 }
 
 // Proves that a user's balance, with no discount, is equal to rayMul(scaledBalance, current index)
-rule integrityOfBalanceOf_noDiscount() {
+rule integrityOfBalanceOf_noDiscount(env e, address user) {
 
-    address user;
+    requireInvariant userIndexSetup(e, user); // added (47 -> 13 sec)
+
     require(getUserDiscountRate(user) == 0);
-    env e;
     uint256 scaledBalance = scaledBalanceOf(user);
     uint256 currentIndex = indexAtTimestamp(e.block.timestamp);
     mathint expectedBalance = rayMulCVL(scaledBalance, currentIndex);
@@ -801,9 +783,8 @@ rule integrityOfBalanceOf_noDiscount() {
 }
 
 // Proves the a user with zero scaled balance has a zero balance
-rule integrityOfBalanceOf_zeroScaledBalance() {
-    address user;
-    env e;
+rule integrityOfBalanceOf_zeroScaledBalance(env e, address user) {
+
     uint256 scaledBalance = scaledBalanceOf(user);
     require(scaledBalance == 0);
 
@@ -811,9 +792,8 @@ rule integrityOfBalanceOf_zeroScaledBalance() {
 }
 
 // Proves the balance will be zero when burn whole dept
-rule burnAllDebtReturnsZeroDebt(address user) {
-
-    env e;
+rule burnAllDebtReturnsZeroDebt(env e, address user) {
+    
     uint256 _variableDebt = balanceOf(e, user);
     
     burn(e, user, _variableDebt, indexAtTimestamp(e.block.timestamp));
@@ -925,9 +905,11 @@ rule functionsNotRevert(env e, method f, calldataarg args)
     satisfy(!lastReverted);
 }
 
-// Set system variables requirements
-rule setSystemVariablesRulesRequirements(env e, method f, calldataarg args)
-    filtered { f -> !DISALLOWED_FUNCTIONS(f) && !HARNESS_FUNCTIONS(f) } {
+// [7-13] Set system variables requirements
+rule setSystemVariablesRequirements(env e, method f, calldataarg args)
+    filtered { f -> !EXCLUDED_FUNCTIONS(f) } {
+
+    require(ghostGhoATokenTouched == false);
 
     address ghoATokenBefore = ghostGhoAToken;
     address discountRateStrategyBefore = ghostDiscountRateStrategy;
@@ -945,13 +927,62 @@ rule setSystemVariablesRulesRequirements(env e, method f, calldataarg args)
         || discountTokenBefore != discountTokenAfter;
 
     // Only pool admin could set system variables
-    assert(!reverted && changed => isPoolAdmin(e, e.msg.sender));
+    assert(!reverted && changed => isPoolAdmin(e, e.msg.sender)); // 9-11
     
     // ghoAToken could be set once
-    assert(ghoATokenBefore != 0 && ghoATokenBefore != ghoATokenAfter => reverted);
+    assert(ghoATokenBefore != 0 && ghoATokenBefore != ghoATokenAfter => reverted); // 7
 
     // Could not set zero address
-    assert(ghoATokenAfter == 0 && ghoATokenBefore != ghoATokenAfter => reverted);
-    assert(discountRateStrategyAfter == 0 && discountRateStrategyBefore != discountRateStrategyAfter => reverted);
-    assert(discountTokenAfter == 0 && discountTokenBefore != discountTokenAfter => reverted);
+    assert(ghostGhoATokenTouched && ghoATokenAfter == 0 => reverted); // 8
+    assert(discountRateStrategyAfter == 0 && discountRateStrategyBefore != discountRateStrategyAfter => reverted); // 12
+    assert(discountTokenAfter == 0 && discountTokenBefore != discountTokenAfter => reverted); // 13
+}
+
+// [14] GhoAToken could be modified
+rule possibilityGhoATokenModify(env e, address ghoAToken) {
+    
+    address ghoATokenBefore = ghostGhoAToken;
+
+    setAToken(e, ghoAToken);
+
+    address ghoATokenAfter = ghostGhoAToken;
+
+    satisfy(ghoATokenBefore != ghoATokenAfter && ghoATokenAfter != 0);
+}
+
+// [15] DiscountRateStrategy could be modified
+rule possibilityDiscountRateStrategyModify(env e, address newDiscountRateStrategy) {
+    
+    address discountRateStrategyBefore = ghostDiscountRateStrategy;
+
+    updateDiscountRateStrategy(e, newDiscountRateStrategy);
+
+    address discountRateStrategyAfter = ghostDiscountRateStrategy;
+
+    satisfy(discountRateStrategyBefore != discountRateStrategyAfter && discountRateStrategyAfter != 0);
+}
+
+// [16] DiscountToken could be modified
+rule possibilityDiscountTokenModify(env e, address newDiscountToken) {
+    
+    address discountTokenBefore = ghostDiscountToken;
+
+    updateDiscountToken(e, newDiscountToken);
+
+    address discountTokenAfter = ghostDiscountToken;
+
+    satisfy(discountTokenBefore != discountTokenAfter && discountTokenAfter != 0);
+}
+
+// [17] Only aToken could decrease accumulatedDebtInterest
+rule onlyATokenCouldDecreaseAccumulatedDebtInterest(env e, method f, calldataarg args, address user) 
+    filtered { f -> !EXCLUDED_FUNCTIONS(f) } {
+
+    uint128 before = ghostAccumulatedDebtInterest[user];
+
+    f(e, args);
+
+    uint128 after = ghostAccumulatedDebtInterest[user];
+
+    assert(before > after => e.msg.sender == ghostGhoAToken);
 }

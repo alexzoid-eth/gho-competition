@@ -2,9 +2,10 @@
 
 # Create a bug, use second parameter as config file name and target directory name
 # Examples:
-#    ./certora/mutations/addMutation.sh src/ ghoToken
-#    ./certora/mutations/addMutation.sh src/ ghoAToken
-#    ./certora/mutations/addMutation.sh src/ ghoFlashMinter
+#    ./certora/mutations/addMutation.sh ./src/ ghoToken
+#    ./certora/mutations/addMutation.sh ./src/ ghoAToken
+#    ./certora/mutations/addMutation.sh ./src/ ghoFlashMinter
+#    ./certora/mutations/addMutation.sh ./src/ ghoVariableDebtToken
 
 CONTRACTS_DIR="$1"
 CONFIG_NAME="$2"

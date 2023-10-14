@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+index 3716480..f1651ca 100644
+--- a/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
++++ b/src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol
+@@ -230,7 +230,7 @@ contract GhoVariableDebtToken is DebtTokenBase, ScaledBalanceTokenBase, IGhoVari
+   function updateDiscountRateStrategy(
+     address newDiscountRateStrategy
+   ) external override onlyPoolAdmin {
+-    require(newDiscountRateStrategy != address(0), 'ZERO_ADDRESS_NOT_VALID');
++    //require(newDiscountRateStrategy != address(0), 'ZERO_ADDRESS_NOT_VALID');
+     address oldDiscountRateStrategy = address(_discountRateStrategy);
+     _discountRateStrategy = IGhoDiscountRateStrategy(newDiscountRateStrategy);
+     emit DiscountRateStrategyUpdated(oldDiscountRateStrategy, newDiscountRateStrategy);
