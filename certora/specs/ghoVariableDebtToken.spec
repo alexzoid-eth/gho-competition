@@ -23,7 +23,7 @@ methods{
     function getUserAccumulatedDebtInterest(address user) external returns (uint256) envfree;
     function scaledBalanceOfToBalanceOf(uint256 bal) internal returns (uint256);
     function getBalanceOfDiscountToken(address user) external returns (uint256);
-    //function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
+    function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
     function rayDiv(uint256 x, uint256 y) external returns (uint256) envfree;
     // added
     function getRevisionHarness() external returns (uint256) envfree;
@@ -88,9 +88,6 @@ methods{
 
     // IncentivesController
     function _.handleAction(address account, uint256 oldTotalSupply, uint256 oldAccountBalance) external => NONDET;
-
-    // Pool
-    function _.ADDRESSES_PROVIDER() external => CONSTANT;
 
     // PoolAddressesProvider
     function _.getACLManager() external => CONSTANT;
