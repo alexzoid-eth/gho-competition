@@ -144,6 +144,12 @@ definition UPDATE_DISCOUNT_DISTRIBUTION_FUNCTION(method f) returns bool =
 definition MINT_FUNCTION(method f) returns bool = 
     f.selector == sig:mint(address, address, uint256, uint256).selector;
 
+definition BURN_FUNCTION(method f) returns bool = 
+    f.selector == sig:burn(address, uint256, uint256).selector;
+
+definition DECREASE_BALANCE_FROM_INTEREST_FUNCTION(method f) returns bool = 
+    f.selector == sig:decreaseBalanceFromInterest(address, uint256).selector;
+
 ////////////////// FUNCTIONS //////////////////////
 
 //
@@ -273,7 +279,17 @@ hook Sstore currentContract._ghoUserState[KEY address i].(offset 0) uint128 val 
 // Ghost copy of `mapping(address => GhoUserState.discountPercent)`
 //
 
-ghost mapping (address => bool) ghostDiscountPercentRead;
+ghost mapping (address => bool) ghostDiscountPercentRead{
+    init_state axiom forall address user. ghostDiscountPercentRead[user] == false;
+}
+
+ghost mapping (address => bool) ghostDiscountPercentWritten {
+    init_state axiom forall address user. ghostDiscountPercentWritten[user] == false;
+}
+
+ghost mapping (address => uint16) ghostDiscountPercentPrev {
+    init_state axiom forall address user. ghostDiscountPercentPrev[user] == 0;
+}
 
 ghost mapping (address => uint16) ghostDiscountPercent {
     init_state axiom forall address user. ghostDiscountPercent[user] == 0;
@@ -284,7 +300,8 @@ hook Sload uint16 val currentContract._ghoUserState[KEY address user].(offset 16
     ghostDiscountPercentRead[user] = true;
 }
 
-hook Sstore currentContract._ghoUserState[KEY address user].(offset 16) uint16 val STORAGE {
+hook Sstore currentContract._ghoUserState[KEY address user].(offset 16) uint16 val (uint16 valPrev) STORAGE {
+    ghostDiscountPercentPrev[user] = valPrev;
     ghostDiscountPercent[user] = val;
 }
 
@@ -1001,7 +1018,9 @@ rule onlyATokenCouldDecreaseAccumulatedDebtInterest(env e, method f, calldataarg
 
     uint128 after = ghostAccumulatedDebtInterest[user];
 
-    assert(before > after => e.msg.sender == ghostGhoAToken);
+    assert(before > after 
+        => (e.msg.sender == ghostGhoAToken && DECREASE_BALANCE_FROM_INTEREST_FUNCTION(f))
+    );
 }
 
 // [g1-2] Only discount token could update discount distribution
@@ -1013,10 +1032,6 @@ rule onlyDiscountTokenCouldUpdateDiscountDistribution(env e, method f, calldataa
 
     assert(!reverted && UPDATE_DISCOUNT_DISTRIBUTION_FUNCTION(f) => e.msg.sender == ghostDiscountToken);
 }
-
-//
-// balanceOf()
-//
 
 // [g18] balanceOf() equal to zero when scaled balance is zero
 rule balanceOfZeroWhenScaledBalanceZero(env e, address user) {
@@ -1074,8 +1089,8 @@ rule zeroDiscountPercentNotAffectBalanceOf(env e, address user) {
     satisfy(!lastReverted);
 }
 
-// [g23] Discount percent integrity
-rule discountPercentInBalanceOfIntegritry(env e, address user) {
+// Zero discount percent integrity
+rule zeroDiscountPercentInBalanceOfIntegritry(env e, address user) {
 
     requireInvariant userIndexSetup(e, user);
 
@@ -1083,26 +1098,72 @@ rule discountPercentInBalanceOfIntegritry(env e, address user) {
     uint256 userIndex = ghostUserStateAdditionalData[user];
     uint256 scaledBalance = scaledBalanceOf(user);
     
-    require(index != userIndex);
-    require(scaledBalance != 0);
-    require(ghostDiscountPercent[user] != 0);
+    require(ghostDiscountPercent[user] == 0);
 
-    mathint expectedBalance = rayMulCVL(scaledBalance, index);
-    mathint balanceIncrease = expectedBalance - rayMulCVL(scaledBalance, userIndex);
-    mathint expectedBalanceWithDiscount = expectedBalance - _GhoTokenHelper.percentMul(require_uint256(balanceIncrease), require_uint256(ghostDiscountPercent[user]));
+    uint256 expectedBalance = _GhoTokenHelper.rayMul(scaledBalance, index);
 
     uint256 balance = balanceOf(e, user);
 
-    assert(to_mathint(balance) == expectedBalanceWithDiscount);
+    assert(balance == expectedBalance);
 }
-
-//
-// mint()
-//
 
 // [g32] Delegator and delegatee could not be the same
 invariant delegatorCannotDecreaseSelfBorrowAllowances(address delegator, address delegatee) 
     ghostBorrowAllowancesPrev[delegator][delegatee] > ghostBorrowAllowances[delegator][delegatee] 
         => delegator != delegatee
     filtered { f -> MINT_FUNCTION(f) }
+
+// [g35] Burn could decrease user balance    
+rule possibilityBurnDecreaseUserBalance(env e, method f, calldataarg args, address user) 
+    filtered { f -> BURN_FUNCTION(f) } {
+
+    uint256 before = ghostUserStateBalance[user];
+
+    f(e, args);
+
+    uint256 after = ghostUserStateBalance[user];
+
+    satisfy(after < before);
+}
+
+// [g78-g81] decreaseBalanceFromInterest() should decrease accumulated debt interest
+rule decreaseBalanceFromInterestIntegrity(env e, address user, uint256 amount) {
+
+    uint128 before = ghostAccumulatedDebtInterest[user];
+    require(before != 0);
+
+    decreaseBalanceFromInterest(e, user, amount);
+
+    uint128 after = ghostAccumulatedDebtInterest[user];
+
+    assert(assert_uint256(before - after) == amount);
+}
+
+// [g154] rebalanceUserDiscountPercent() should update user index
+rule rebalanceUserDiscountPercentUpdateUserIndex(env e, address user) {
+
+    rebalanceUserDiscountPercent(e, user);
+
+    assert(ghostUserStateAdditionalData[user] == indexAtTimestamp(e.block.timestamp));
+}
+
+// [g162] Discount percent changed to different value
+invariant discountPercentChangedToDifferentValue(address user) ghostDiscountPercentWritten[user]
+    => ghostDiscountPercentPrev[user] != ghostDiscountPercent[user]
+    filtered { f -> !EXCLUDED_FUNCTIONS(f) }
+
+// Burn all user balance will burn all scaled balance
+rule burnAllUserBalanceBurnAllScaledBalance(env e, address user, uint256 amount, uint256 index) {
+
+    requireInvariant userIndexSetup(e, user);
+    requireInvariant discountCantExceed100Percent(user);
+
+    require(amount == balanceOf(e, user));
+
+    burn(e, user, amount, index);
+
+    // Scaled balance
+    assert(ghostUserStateBalance[user] == 0);
+}
+
 

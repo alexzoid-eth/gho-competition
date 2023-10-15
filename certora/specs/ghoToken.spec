@@ -676,5 +676,3 @@ rule functionsNotRevert(env e, method f, calldataarg args) {
     
     satisfy(!lastReverted);
 }
-
-// TODO: ERC20.sol

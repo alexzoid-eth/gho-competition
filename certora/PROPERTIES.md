@@ -7,14 +7,33 @@
 - `integrityOfDistributeFeesToTreasury`
   - Checks the integrity of distributeFees
 
+---
+
+- `onlyPoolAdminCouldSetSystemVariables`
+  - Only pool admin could set system variables
+- `flashLoanShouldIncreaseBalanceByFee`
+  - Flash loan should increase current contract's GHO balance
+- `flashLoanShouldNotChangeOtherUserBalances`
+  - No other user address balance should change
+
 ## Valid States
 
 - `functionsNotRevert`
   - Possibility should not revert
+- `feeLessThanOrEqualToMax`
+  - Fee could not be greater than MAX_FEE
+- `possibilityMaxFlashLoanGTZero`
+  - Possibility maxFlashLoan greater than zero for GhoToken
 
 ## State Transitions
 
+- `onFlashLoanCallbackInitiatorIntegrity`
+  - onFlashLoan callback integrity
+
 ## Variable Transitions
+
+- `possibilityFeeSetToMax`
+  - Fee could be set to MAX_FEE
 
 ## Unit Tests
 
@@ -22,6 +41,17 @@
   - Checks the integrity of updateGhoTreasury - after update the given address is set
 - `integrityOfFeeSet`
   - Checks the integrity of updateFee - after update the given value is set
+
+---
+
+- `functionsNotRevert`
+  - Possibility should not revert
+- `viewersIntegrity`
+  - Viewer functions integrity
+- `flashFeeRevertsWhenNotGhoToken`
+  - flashFee() reverts when not GHO token
+- `flashLoanOnlyGhoTokensSupported`
+  - Flashloan supports only GHO tokens
 
 # GhoVariableDebtToken
 
@@ -38,6 +68,19 @@
 - `integrityOfRebalanceUserDiscountPercent_userIsolation`
   - Proves that rebalanceUserDiscountPercent can't effect other user's scaled balance
 
+---
+
+- `onlyATokenCouldDecreaseAccumulatedDebtInterest`
+  - Only aToken could decrease accumulatedDebtInterest
+- `onlyDiscountTokenCouldUpdateDiscountDistribution`
+  - Only discount token could update discount distribution
+- `discountPercentMattersInBalanceOf`
+  - Discount percent matters in balanceOf()
+- `discountPercentDoesNotMatterWhenUserIndexEqCurrentIndex`
+  - Discount percent doesn't matters in balanceOf() when user index equal to current index
+- `burnAllUserBalanceBurnAllScaledBalance`
+  - Burn all user balance will burn all scaled balance
+
 ## Valid States
 
 - `discountCantExceed100Percent`
@@ -48,6 +91,13 @@
   - Proves that a user's balance, with no discount, is equal to rayMul(scaledBalance, current index)
 - `integrityOfBalanceOf_zeroScaledBalance`
   - Proves the a user with zero scaled balance has a zero balance
+
+---
+
+- `userIndexSetup`
+  - User_index >= RAY() and user_index <= current_index
+- `delegatorCannotDecreaseSelfBorrowAllowances`
+  - Delegator and delegatee could not be the same
 
 ## State Transitions
 
@@ -66,6 +116,15 @@
 - `integrityOfBurn_fullRepay_concrete`
   - Proves a concrete case of repaying the full debt that ends with a zero balance
 
+---
+
+- `balanceOfZeroWhenScaledBalanceZero`
+  - balanceOf() equal to zero when scaled balance is zero
+- `zeroDiscountPercentNotAffectBalanceOf`
+  - Zero discount percent does not affect balance
+- `possibilityBurnDecreaseUserBalance`
+  - Burn could decrease user balance
+
 ## Variable Transitions
 
 - `integrityOfMint_updateIndex`
@@ -76,6 +135,23 @@
   - Proves that after calling mint, the user's discount rate is up to date
 - `integrityOfBurn_updateDiscountRate`
   - Proves that after calling burn, the user's discount rate is up to date
+
+---
+
+- `initializeCouldBeExecutedOnce`
+  - Initialize could be executed once
+- `initializedWithSpecificPoolAddressOnly`
+  - Could be initialized with specific pool address only
+- `setSystemVariablesRequirements`
+  - Set system variables requirements
+- `possibilityGhoATokenModify`
+  - GhoAToken could be modified
+- `possibilityDiscountRateStrategyModify`
+  - DiscountRateStrategy could be modified
+- `possibilityDiscountTokenModify`
+  - DiscountToken could be modified
+- `discountPercentChangedToDifferentValue`
+  - Discount percent changed to different value
 
 ## Unit Tests
 
@@ -96,6 +172,23 @@
 - `burnAllDebtReturnsZeroDebt`
   - Proves the balance will be zero when burn whole dept
 
+---
+
+- `initializeSetInitialParamsCorrectly`
+  - Initialize set initial params correctly
+- `domainSeparatorDepensOnName`
+  - Domain separator depends on token name
+- `viewersIntegrity`
+  - Viewers integrity
+- `functionsNotRevert`
+  - Possibility should not revert
+- `decreaseBalanceFromInterestIntegrity`
+  - decreaseBalanceFromInterest() should decrease accumulated debt interest
+- `rebalanceUserDiscountPercentUpdateUserIndex`
+  - rebalanceUserDiscountPercent() should update user index
+- `zeroDiscountPercentInBalanceOfIntegritry`
+  - Zero discount percent integrity
+
 # GhoAToken
 
 ## High-Level
@@ -105,6 +198,17 @@
 - `integrityTransferUnderlyingToWithHandleRepayment`
   - BucketLevel decreases after transferUnderlyingTo() followed by handleRepayment()
 
+---
+
+- `onlyPoolAdminCouldTransferOutTokens`
+  - Stuck tokens could be rescued only by pool admin
+- `possibilityOfRescueStuckToken`
+  - Possibility of rescue stuck tokens
+- `ghoTokensCouldBeTransferredOutToGhoTresauryOnly`
+  - GHO tokens should be sent to ghoTresaury only. Pool admin could not rug pool GHO tokens via rescue mechanism
+- `onlyPoolCanInitializeCommunicationWithGHOToken`
+  - Only Pool could initialize a communication with GhoToken contract
+
 ## Valid States
 
 - `totalSupplyAlwaysZero`
@@ -112,9 +216,38 @@
 - `userBalanceAlwaysZero`
   - Proves that any user's balance of GhoAToken is always zero
 
+---
+
+- `initializeCouldBeExecutedOnce`
+  - Initialize could be executed once
+
 ## State Transitions
 
+- `possibilityOfTransferOutGhoTokensToTresaury`
+  - Possibility of anyone to withdraw GHO tokens to the GHO Tresaury
+- `possibilityOfBurnMintChangeBucketLevel`
+  - Possibility of change current contract's bucketLevel with mint and burn
+- `noAnotherUserBucketLevelCouldBeChanged`
+  - Only bucketLevel of current contract could be changed
+- `possibilityDecreaseWholeBalance`
+  - Possibility of decrease whole balance of sGHO tokens
+- `handleRepaymentBurnAnythingMoreBalanceFromInterest`
+  - handleRepayment() should burn anything more than balance from interest
+
 ## Variable Transitions
+
+- `initializedWithSpecificPoolAddressOnly`
+  - Could be initialized with specific pool address only
+- `onlyPoolAdminCouldUpdateCriticalAddresses`
+  - Only Pool admin could set Treasury, VariableDebtToken, IncentivesController (expect in `initialize()`)
+- `variableDebtTokenSetOnlyOnce`
+  - VariableDebtToken could be set once
+- `systemVariablesNotSetToZero`
+  - System variables (ghoTreasury, ghoVariableDebtToken) could not be set to zero (expect in `initialize()`)
+- `possibilityGhoTreasuryModify`
+  - GhoTreasury could be modified
+- `possibilityGhoVariableDebtTokenModify`
+  - GhoVariableDebtToken could be modified
 
 ## Unit Tests
 
@@ -124,6 +257,19 @@
   - Proves that ghoAToken::burn always reverts
 - `noTransfer`
   - Proves that ghoAToken::transfer always reverts
+
+---
+
+- `initializeSetInitialParamsCorrectly`
+  - Initialize set initial params correctly
+- `specificFunctionsAlwaysRevert`
+  - Specific functions always reverts
+- `viewersIntegrity`
+  - Viewers integrity
+- `domainSeparatorDepensOnName`
+  - Domain separator depends on token name
+- `functionsNotRevert`
+  - Possibility should not revert
 
 # GhoToken
 
@@ -135,6 +281,13 @@
   - Proves that you can't mint more than the facilitator's remaining capacity
 - `burnLimitedByFacilitatorLevel`
   - Proves that you can't burn more than the facilitator's current level
+
+---
+
+- `onlyFacilitatorManagerCouldModifyFacilitatorList`
+  - Only account with `FACILITATOR_MANAGER_ROLE` can add or remove facilitators
+- `onlyBucketManagerCouldModifyBucketCapacity`
+  - Only account with `BUCKET_MANAGER_ROLE` can modify bucketCapacity
 
 ## Valid States
 
@@ -152,6 +305,15 @@
   - A facilitator with a positive bucket level exists in the `_facilitators` mapping
 - `level_leq_capacity`
   - Bucket level <= bucket capacity unless `setFacilitatorBucketCapacity()` lowered it
+
+---
+
+- `facilitatorShouldNotAddedTwice`
+  - Couln't add the same (with the same label) facilitator twice
+- `facilitatorAddedWithEmptyLabelShouldRevert`
+  - Couln't add facilitator with empty label
+- `removeFacilitatorShouldEmptyLabel`
+  - Facilitator's label empty after been removed
 
 ## State Transitions
 
@@ -172,7 +334,21 @@
 - `balance_after_burn`
   - Balance changed correctly after `burn()`
 
+---
+
+- `mintBurnAffectOnlySenderFacilitator`
+  - Mint and burn affect only sender's facilitator
+- `onlyExistingFacilitatorCouldBeRemovedOrSetBucketCapacity`
+  - Only existing facilitator could be removed or set bucket capacity
+
 ## Variable Transitions
+
+---
+
+- `addFacilitatorShouldSetLabelAndBucketCapacity`
+  - addFacilitator() set label and bucket capacity
+- `onlyFacilitatorWithZeroBucketLevelCouldBeRemoved`
+  - Only facilitator with zero bucketLevel could be removed
 
 ## Unit Tests
 
@@ -182,6 +358,15 @@
   - GhoTokenHelper.getFacilitatorBucketCapacity() called after setFacilitatorBucketCapacity() return the assign bucket capacity
 - `facilitator_in_list_after_addFacilitator`
   - Facilitator is valid after successful call to `addFacilitator()`
+- `mintBurnShouldRevertWhenZeroAmount`
+  - Mint and burn revert when amount is zero
+
+---
+
+- `gettersIntegrity`
+  - Prove view function work as expected
+- `functionsNotRevert`
+  - Possibility should not revert
 
 ## Setup
 

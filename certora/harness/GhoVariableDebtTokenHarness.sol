@@ -3,8 +3,11 @@ pragma solidity 0.8.10;
 import {GhoVariableDebtToken} from '../../src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol';
 import {IPool} from '@aave/core-v3/contracts/interfaces/IPool.sol';
 import {IACLManager} from '@aave/core-v3/contracts/interfaces/IACLManager.sol';
+import {WadRayMath} from '@aave/core-v3/contracts/protocol/libraries/math/WadRayMath.sol';
 
 contract GhoVariableDebtTokenHarness is GhoVariableDebtToken {
+  using WadRayMath for uint256;
+
   constructor(IPool pool) public GhoVariableDebtToken(pool) {
     //nop
   }

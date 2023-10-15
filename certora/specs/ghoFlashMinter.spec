@@ -267,7 +267,7 @@ rule functionsNotRevert(env e, method f, calldataarg args) {
     satisfy(!lastReverted);
 }
 
-// [1, 4] only pool admin could set system variables
+// [1, 4] Only pool admin could set system variables
 rule onlyPoolAdminCouldSetSystemVariables(env e, method f, calldataarg args) 
     filtered { f -> !VIEW_FUNCTIONS(f) } {
 
@@ -323,7 +323,7 @@ rule viewersIntegrity(env e) {
     assert(getGhoTreasury() == ghostGhoTreasury);
 }
 
-// [g36] flashFee() reverts when pass not GHO token
+// [g36] flashFee() reverts when not GHO token
 rule flashFeeRevertsWhenNotGhoToken(env e, address token, uint256 amount) {
 
     flashFee@withrevert(e, token, amount);
