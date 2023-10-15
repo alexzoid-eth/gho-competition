@@ -67,7 +67,7 @@ contract MockFlashBorrower is IERC3156FlashBorrower {
     counter++;
 
     /*
-    GhoFlashMinter.flashLoan() always reverts
+    TODO: GhoFlashMinter.flashLoan() always reverts
 
     if (action == Action.FLASH_LOAN && counter < repeat_on_count) {
       uint256 amount_reenter;

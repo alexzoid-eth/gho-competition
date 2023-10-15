@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..3b7f326 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -73,7 +73,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+   ) external override returns (bool) {
+     require(token == address(GHO_TOKEN), 'FlashMinter: Unsupported currency');
+ 
+-    uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
++    uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? _flashFee(amount) : 0;
+     GHO_TOKEN.mint(address(receiver), amount);
+ 
+     require(

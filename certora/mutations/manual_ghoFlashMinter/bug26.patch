@@ -1,0 +1,19 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..2d58562 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -76,10 +76,10 @@ contract GhoFlashMinter is IGhoFlashMinter {
+     uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
+     GHO_TOKEN.mint(address(receiver), amount);
+ 
+-    require(
+-      receiver.onFlashLoan(msg.sender, address(GHO_TOKEN), amount, fee, data) == CALLBACK_SUCCESS,
+-      'FlashMinter: Callback failed'
+-    );
++    //require(
++    //  receiver.onFlashLoan(msg.sender, address(GHO_TOKEN), amount, fee, data) == CALLBACK_SUCCESS,
++    //  'FlashMinter: Callback failed'
++    //);
+ 
+     GHO_TOKEN.transferFrom(address(receiver), address(this), amount + fee);
+     GHO_TOKEN.burn(amount);

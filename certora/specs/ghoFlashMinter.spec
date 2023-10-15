@@ -142,10 +142,20 @@ hook Sstore currentContract._ghoTreasury address val STORAGE {
     ghostGhoTreasury = val;
 }
 
+// 
+// Check if receiver was called
+//
+
+ghost bool ghoReceiverCalled;
+
+hook CALL(uint g, address addr, uint value, uint argsOffset, uint argsLength, uint retOffset, uint retLength) uint rc {
+    ghoReceiverCalled = addr == _MockFlashBorrower ? true : ghoReceiverCalled;
+}
+
 ///////////////// PROPERTIES //////////////////////
 
 /* 
-// TODO: Always reverts
+// TODO: flashLoan() always reverts
 
 // The GHO balance of the flash minter should grow when calling any function, excluding distributeFees
 rule balanceOfFlashMinterGrows(method f, env e, calldataarg args) 
@@ -219,7 +229,7 @@ rule integrityOfDistributeFeesToTreasury(){
 }
 
 /*
-// TODO: Always reverts
+// TODO: flashLoan() always reverts
 
 // Checks that the fee amount reported by flashFee is the the same as the actual fee that is taken by flashloaning
 rule feeSimulationEqualsActualFee(address receiver, address token, uint256 amount, bytes data){
@@ -248,6 +258,14 @@ rule feeSimulationEqualsActualFee(address receiver, address token, uint256 amoun
 */
 
 ///////////////// ADDED PROPERTIES //////////////////////
+
+// Possibility should not revert
+rule functionsNotRevert(env e, method f, calldataarg args) {
+    
+    f@withrevert(e, args); 
+    
+    satisfy(!lastReverted);
+}
 
 // [1, 4] only pool admin could set system variables
 rule onlyPoolAdminCouldSetSystemVariables(env e, method f, calldataarg args) 
@@ -313,29 +331,76 @@ rule possibilityMaxFlashLoanGTZero(env e) {
     satisfy(!lastReverted && mfloan != 0);
 }
 
-/*
-// [] Prove send all GHO tokens to treasury
-rule sendAllGhoTokensToTreasury(env e) {
+// [17] Flashloan supports only GHO tokens
+rule flashLoanOnlyGhoTokensSupported(env e, address receiver, address token, uint256 amount, bytes data) {
 
-    address user;
-    ghoBalanceOfTwoUsersLETotalSupply(currentContract, ghostGhoTreasury, user);
+    flashLoan@withrevert(e, receiver, token, amount, data);
 
-    uint256 currentBalanceBefore = _GhoToken.balanceOf(currentContract);
-    require(currentBalanceBefore != 0);
-    uint256 treasuryBalanceBefore = _GhoToken.balanceOf(ghostGhoTreasury);
-
-    distributeFeesToTreasury(e);
-
-    uint256 currentBalanceAfter = _GhoToken.balanceOf(currentContract);
-    uint256 treasuryBalanceAfter = _GhoToken.balanceOf(ghostGhoTreasury);
-
-    assert(currentBalanceBefore - currentBalanceAfter == treasuryBalanceAfter - treasuryBalanceBefore);
+    assert(token != _GhoToken => lastReverted);
 }
-*/
-// Possibility should not revert
-rule functionsNotRevert(env e, method f, calldataarg args) {
+
+// [18-24] Flash loan should increase current contract's GHO balance
+rule flashLoanShouldIncreaseBalanceByFee(env e, address receiver, address token, uint256 amount, bytes data) {
+
+    requireInvariant feeLessThanOrEqualToMax();
+
+    require(amount != 0);
+
+    ghoBalanceOfTwoUsersLETotalSupply(currentContract, receiver, ghostGhoTreasury);
+
+    require(e.msg.sender != currentContract);
+    require(receiver == _MockFlashBorrower);
+
+    uint256 receiverBalanceBefore = _GhoToken.balanceOf(receiver);
+    uint256 facilitatorBalanceBefore = _GhoToken.balanceOf(currentContract);
+    uint256 fee = retrieveFlashBorrowerFromGhost(e.msg.sender)
+        ? 0
+        : _GhoTokenHelper.percentMul(amount, ghostFee);
+
+    flashLoan(e, receiver, token, amount, data);
+
+    uint256 receiverBalanceAfter = _GhoToken.balanceOf(receiver);
+    uint256 facilitatorBalanceAfter = _GhoToken.balanceOf(currentContract);
+
+    assert(assert_uint256(receiverBalanceBefore - receiverBalanceAfter) == fee);
+    assert(assert_uint256(facilitatorBalanceAfter - facilitatorBalanceBefore) == fee);
+}
+
+// [25] No other user address balance should change
+rule flashLoanShouldNotChangeOtherUserBalances(env e, address receiver, address token, uint256 amount, bytes data) {
     
-    f@withrevert(e, args); 
-    
-    satisfy(!lastReverted);
+    requireInvariant feeLessThanOrEqualToMax();
+
+    address otherUser;
+    require(otherUser != currentContract);
+    require(otherUser != receiver);
+
+    require(e.msg.sender != currentContract);
+    require(receiver == _MockFlashBorrower);
+
+    ghoBalanceOfTwoUsersLETotalSupply(currentContract, receiver, otherUser);
+
+    uint256 otherUserBefore = _GhoToken.balanceOf(otherUser);
+
+    flashLoan(e, receiver, token, amount, data);
+
+    uint256 otherUserAfter = _GhoToken.balanceOf(otherUser);
+
+    assert(otherUserBefore == otherUserAfter);
+}
+
+// [26] onFlashLoan callback integrity
+rule onFlashLoanCallbackInitiatorIntegrity(env e, address receiver, address token, uint256 amount, bytes data) {
+
+    require(receiver == _MockFlashBorrower);
+    require(ghoReceiverCalled == false);
+
+    flashLoan@withrevert(e, receiver, token, amount, data);
+    bool reverted = lastReverted;
+
+    // FlashBorrower: Untrusted loan initiator
+    assert(e.msg.sender != _MockFlashBorrower => reverted);
+
+    // Callback was executeds
+    assert(!reverted => ghoReceiverCalled);
 }
