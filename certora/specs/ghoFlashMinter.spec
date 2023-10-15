@@ -305,7 +305,7 @@ rule viewersIntegrity(env e) {
     address token1;
     uint256 mfloan = maxFlashLoan(e, token1);
     assert(token1 == _GhoToken 
-        ? mfloan == (capacity > level ? require_uint256(capacity - level) : 0)
+        ? mfloan == (capacity > level ? assert_uint256(capacity - level) : 0)
         : mfloan == 0
     );
 
@@ -321,6 +321,14 @@ rule viewersIntegrity(env e) {
     assert(getFee() == ghostFee);
 
     assert(getGhoTreasury() == ghostGhoTreasury);
+}
+
+// [g36] flashFee() reverts when pass not GHO token
+rule flashFeeRevertsWhenNotGhoToken(env e, address token, uint256 amount) {
+
+    flashFee@withrevert(e, token, amount);
+    
+    assert(token != _GhoToken => lastReverted);
 }
 
 // [14] Possibility maxFlashLoan greater than zero for GhoToken
