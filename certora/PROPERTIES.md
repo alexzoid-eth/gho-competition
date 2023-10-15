@@ -1,3 +1,28 @@
+# GhoFlashMinter
+
+## High-Level
+
+- `availableLiquidityDoesntChange`
+  - Checks that the available liquidity, retrieved by maxFlashLoan, stays the same after any action
+- `integrityOfDistributeFeesToTreasury`
+  - Checks the integrity of distributeFees
+
+## Valid States
+
+- `functionsNotRevert`
+  - Possibility should not revert
+
+## State Transitions
+
+## Variable Transitions
+
+## Unit Tests
+
+- `integrityOfTreasurySet`
+  - Checks the integrity of updateGhoTreasury - after update the given address is set
+- `integrityOfFeeSet`
+  - Checks the integrity of updateFee - after update the given value is set
+
 # GhoVariableDebtToken
 
 ## High-Level

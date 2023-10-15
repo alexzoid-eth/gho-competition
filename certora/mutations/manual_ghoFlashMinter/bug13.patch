@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..98bcfe6 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -112,7 +112,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+       return 0;
+     } else {
+       (uint256 capacity, uint256 level) = GHO_TOKEN.getFacilitatorBucket(address(this));
+-      return capacity > level ? capacity - level : 0;
++      return capacity > level ? capacity + level : 0;
+     }
+   }
+ 

@@ -1,15 +1,10 @@
 pragma solidity 0.8.10;
 
 import {GhoVariableDebtToken} from '../../src/contracts/facilitators/aave/tokens/GhoVariableDebtToken.sol';
-import {WadRayMath} from '@aave/core-v3/contracts/protocol/libraries/math/WadRayMath.sol';
 import {IPool} from '@aave/core-v3/contracts/interfaces/IPool.sol';
 import {IACLManager} from '@aave/core-v3/contracts/interfaces/IACLManager.sol';
-import {PercentageMath} from '@aave/core-v3/contracts/protocol/libraries/math/PercentageMath.sol';
 
 contract GhoVariableDebtTokenHarness is GhoVariableDebtToken {
-  using WadRayMath for uint256;
-  using PercentageMath for uint256;
-
   constructor(IPool pool) public GhoVariableDebtToken(pool) {
     //nop
   }
@@ -32,19 +27,6 @@ contract GhoVariableDebtTokenHarness is GhoVariableDebtToken {
 
   function getBalanceOfDiscountToken(address user) external returns (uint256) {
     return _discountToken.balanceOf(user);
-  }
-
-  function rayMul(uint256 x, uint256 y) external view returns (uint256) {
-    return x.rayMul(y);
-  }
-
-  function rayDiv(uint256 x, uint256 y) external view returns (uint256) {
-    return x.rayDiv(y);
-  }
-
-  function percentMul(uint256 x, uint256 y) external view returns (uint256 result) {
-    assert(y != 0);
-    return x.percentMul(y);
   }
 
   //

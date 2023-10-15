@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..386ef2b 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -92,7 +92,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+   /// @inheritdoc IGhoFacilitator
+   function distributeFeesToTreasury() external override {
+     uint256 balance = GHO_TOKEN.balanceOf(address(this));
+-    GHO_TOKEN.transfer(_ghoTreasury, balance);
++    //GHO_TOKEN.transfer(_ghoTreasury, balance);
+     emit FeesDistributedToTreasury(_ghoTreasury, address(GHO_TOKEN), balance);
+   }
+ 

@@ -3,8 +3,13 @@ pragma solidity ^0.8.0;
 import {IGhoToken} from '../../src/contracts/gho/interfaces/IGhoToken.sol';
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 import {GhoToken} from '../../src/contracts/gho/GhoToken.sol';
+import {WadRayMath} from '@aave/core-v3/contracts/protocol/libraries/math/WadRayMath.sol';
+import {PercentageMath} from '@aave/core-v3/contracts/protocol/libraries/math/PercentageMath.sol';
 
 contract GhoTokenHelper {
+  using WadRayMath for uint256;
+  using PercentageMath for uint256;
+
   GhoToken ghoToken;
 
   /**
@@ -83,5 +88,18 @@ contract GhoTokenHelper {
    */
   function compareStrings(string memory a, string memory b) external pure returns (bool) {
     return keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b));
+  }
+
+  function rayMul(uint256 x, uint256 y) external view returns (uint256) {
+    return x.rayMul(y);
+  }
+
+  function rayDiv(uint256 x, uint256 y) external view returns (uint256) {
+    return x.rayDiv(y);
+  }
+
+  function percentMul(uint256 x, uint256 y) external view returns (uint256 result) {
+    assert(y != 0);
+    return x.percentMul(y);
   }
 }

@@ -23,10 +23,7 @@ methods{
     function getUserAccumulatedDebtInterest(address user) external returns (uint256) envfree;
     function scaledBalanceOfToBalanceOf(uint256 bal) internal returns (uint256);
     function getBalanceOfDiscountToken(address user) external returns (uint256);
-    function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
-    function rayDiv(uint256 x, uint256 y) external returns (uint256) envfree;
     // added
-    function percentMul(uint256 x, uint256 y) external returns (uint256) envfree;
     function getRevisionHarness() external returns (uint256) envfree;
     function getPoolAddress() external returns (address) envfree;
     function calculateDomainSeparator() external returns (bytes32);
@@ -130,9 +127,6 @@ definition HARNESS_FUNCTIONS(method f) returns bool =
     || f.selector == sig:getUserAccumulatedDebtInterest(address).selector
     || f.selector == sig:scaledBalanceOfToBalanceOf(uint256).selector
     || f.selector == sig:getBalanceOfDiscountToken(address).selector
-    || f.selector == sig:rayMul(uint256, uint256).selector
-    || f.selector == sig:rayDiv(uint256, uint256).selector
-    || f.selector == sig:percentMul(uint256, uint256).selector
     || f.selector == sig:getRevisionHarness().selector
     || f.selector == sig:getPoolAddress().selector
     || f.selector == sig:calculateDomainSeparator().selector
@@ -177,7 +171,7 @@ function rayDivUint256(uint256 a, uint256 b) returns uint256 {
 }
 
 function percentMul256(uint256 a, uint256 b) returns uint256 {
-    return percentMul(a, b);
+    return _GhoTokenHelper.percentMul(a, b);
 }
 
 // Query index_ghost for the index value at the input timestamp
@@ -1095,7 +1089,7 @@ rule discountPercentInBalanceOfIntegritry(env e, address user) {
 
     mathint expectedBalance = rayMulCVL(scaledBalance, index);
     mathint balanceIncrease = expectedBalance - rayMulCVL(scaledBalance, userIndex);
-    mathint expectedBalanceWithDiscount = expectedBalance - percentMul(require_uint256(balanceIncrease), require_uint256(ghostDiscountPercent[user]));
+    mathint expectedBalanceWithDiscount = expectedBalance - _GhoTokenHelper.percentMul(require_uint256(balanceIncrease), require_uint256(ghostDiscountPercent[user]));
 
     uint256 balance = balanceOf(e, user);
 

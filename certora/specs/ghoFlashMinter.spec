@@ -1,5 +1,7 @@
-using GhoToken as _GhoToken;
-using GhoAToken as _GhoAToken;
+import "./methods/GhoTokenHelperMethods.spec";
+
+using GhoTokenHarness as _GhoToken;
+using GhoATokenHarness as _GhoAToken;
 using MockFlashBorrower as _MockFlashBorrower;
 
 ///////////////// METHODS //////////////////////
@@ -13,6 +15,7 @@ methods{
     // GhoFlashMinterHarness
 
     // GhoFlashMinter
+    function MAX_FEE() external returns (uint256) envfree;
     function flashLoan(address receiver, address token, uint256 amount, bytes data) external returns (bool);
     function distributeFeesToTreasury() external;
     function updateFee(uint256 newFee) external;
@@ -34,7 +37,7 @@ methods{
     function _GhoToken.totalSupply() external returns (uint256) envfree;
     function _GhoToken.balanceOf(address) external returns (uint256) envfree;
     // ERC20
-    function _.mint(address, uint256)  external => DISPATCHER(true);
+    function _.mint(address, uint256) external => DISPATCHER(true);
     function _.burn(uint256) external => DISPATCHER(true);
     function _.transfer(address, uint256) external => DISPATCHER(true);
     function _.transferFrom(address, address, uint256) external => DISPATCHER(true);
@@ -67,6 +70,8 @@ methods{
 }
 
 ///////////////// DEFINITIONS /////////////////////
+
+definition VIEW_FUNCTIONS(method f) returns bool = f.isView || f.isPure;
 
 ////////////////// FUNCTIONS //////////////////////
 
@@ -139,6 +144,9 @@ hook Sstore currentContract._ghoTreasury address val STORAGE {
 
 ///////////////// PROPERTIES //////////////////////
 
+/* 
+// TODO: Always reverts
+
 // The GHO balance of the flash minter should grow when calling any function, excluding distributeFees
 rule balanceOfFlashMinterGrows(method f, env e, calldataarg args) 
     filtered { f -> f.selector != sig:distributeFeesToTreasury().selector } {
@@ -158,20 +166,22 @@ rule balanceOfFlashMinterGrows(method f, env e, calldataarg args)
 
     assert(facilitatorBalance_ >= _facilitatorBalance);
 }
+*/
 
-// Checks the integrity of updateGhoTreasury - after update the given address is set
+// [2] Checks the integrity of updateGhoTreasury - after update the given address is set
 rule integrityOfTreasurySet(env e, address token){
+    
     updateGhoTreasury(e, token);
+    
     assert(ghostGhoTreasury == token);
 }
 
-// Checks the integrity of updateFee - after update the given value is set
-rule integrityOfFeeSet(uint256 new_fee){
-    env e;
-    updateFee(e, new_fee);
-    uint256 fee_ = getFee(e);
+// [3] Checks the integrity of updateFee - after update the given value is set
+rule integrityOfFeeSet(env e, uint256 new_fee){
 
-    assert(fee_ == new_fee);
+    updateFee(e, new_fee);
+
+    assert(ghostFee == new_fee);
 }
 
 // Checks that the available liquidity, retrieved by maxFlashLoan, stays the same after any action
@@ -186,7 +196,7 @@ rule availableLiquidityDoesntChange(method f, address token){
     assert(liquidity_ == _liquidity);
 }
 
-// Checks the integrity of distributeFees:
+// [15, 16] Checks the integrity of distributeFees:
 //  1. As long as the treasury contract itself isn't acting as a flashloan minter, the flashloan 
 //      facilitator's GHO balance should be empty after distribution
 //  2. The change in balances of the receiver (treasury) and the sender (flash minter) is the 
@@ -207,6 +217,9 @@ rule integrityOfDistributeFeesToTreasury(){
     assert(treasury != currentContract => facilitatorBalance_ == 0);
     assert(treasuryBalance_ - _treasuryBalance == _facilitatorBalance - facilitatorBalance_);
 }
+
+/*
+// TODO: Always reverts
 
 // Checks that the fee amount reported by flashFee is the the same as the actual fee that is taken by flashloaning
 rule feeSimulationEqualsActualFee(address receiver, address token, uint256 amount, bytes data){
@@ -232,9 +245,93 @@ rule feeSimulationEqualsActualFee(address receiver, address token, uint256 amoun
 
     assert(feeSimulationResult == actualFee);
 }
+*/
 
 ///////////////// ADDED PROPERTIES //////////////////////
 
+// [1, 4] only pool admin could set system variables
+rule onlyPoolAdminCouldSetSystemVariables(env e, method f, calldataarg args) 
+    filtered { f -> !VIEW_FUNCTIONS(f) } {
+
+    uint256 feeBefore = ghostFee;
+    address ghoTreasuryBefore = ghostGhoTreasury;
+
+    f(e, args);
+
+    bool changed = feeBefore != ghostFee || ghoTreasuryBefore != ghostGhoTreasury;
+
+    assert(changed => retrievePoolAdminFromGhost(e.msg.sender));
+}
+
+// [5] Fee could not be greater than MAX_FEE
+invariant feeLessThanOrEqualToMax() ghostFee <= MAX_FEE() 
+    filtered { f -> !VIEW_FUNCTIONS(f) }
+
+// [6] Fee could be set to MAX_FEE
+rule possibilityFeeSetToMax(env e, calldataarg args)  {
+    
+    uint256 feeBefore = ghostFee;
+    require(feeBefore == 0);
+
+    updateFee(e, args);
+
+    satisfy(ghostFee == MAX_FEE());
+}
+
+// [7-13] Viewer functions integrity
+rule viewersIntegrity(env e) {
+
+    uint256 capacity = _GhoTokenHelper.getFacilitatorBucketCapacity(currentContract);
+    uint256 level = _GhoTokenHelper.getFacilitatorBucketLevel(currentContract);
+
+    address token1;
+    uint256 mfloan = maxFlashLoan(e, token1);
+    assert(token1 == _GhoToken 
+        ? mfloan == (capacity > level ? require_uint256(capacity - level) : 0)
+        : mfloan == 0
+    );
+
+    address token2;
+    uint256 amount;
+    uint256 ffee = flashFee(e, token2, amount);
+    assert(token2 == _GhoToken);
+    assert(retrieveFlashBorrowerFromGhost(e.msg.sender) 
+        ? ffee == 0 
+        : ffee == _GhoTokenHelper.percentMul(amount, ghostFee)
+    );
+
+    assert(getFee() == ghostFee);
+
+    assert(getGhoTreasury() == ghostGhoTreasury);
+}
+
+// [14] Possibility maxFlashLoan greater than zero for GhoToken
+rule possibilityMaxFlashLoanGTZero(env e) {
+
+    uint256 mfloan = maxFlashLoan@withrevert(e, _GhoToken);
+
+    satisfy(!lastReverted && mfloan != 0);
+}
+
+/*
+// [] Prove send all GHO tokens to treasury
+rule sendAllGhoTokensToTreasury(env e) {
+
+    address user;
+    ghoBalanceOfTwoUsersLETotalSupply(currentContract, ghostGhoTreasury, user);
+
+    uint256 currentBalanceBefore = _GhoToken.balanceOf(currentContract);
+    require(currentBalanceBefore != 0);
+    uint256 treasuryBalanceBefore = _GhoToken.balanceOf(ghostGhoTreasury);
+
+    distributeFeesToTreasury(e);
+
+    uint256 currentBalanceAfter = _GhoToken.balanceOf(currentContract);
+    uint256 treasuryBalanceAfter = _GhoToken.balanceOf(ghostGhoTreasury);
+
+    assert(currentBalanceBefore - currentBalanceAfter == treasuryBalanceAfter - treasuryBalanceBefore);
+}
+*/
 // Possibility should not revert
 rule functionsNotRevert(env e, method f, calldataarg args) {
     

@@ -1,0 +1,13 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..430ccbf 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -98,7 +98,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+   // @inheritdoc IGhoFlashMinter
+   function updateFee(uint256 newFee) external override onlyPoolAdmin {
+-    _updateFee(newFee);
++    //_updateFee(newFee);
+   }
+ 
+   /// @inheritdoc IGhoFacilitator

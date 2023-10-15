@@ -66,9 +66,9 @@ contract MockFlashBorrower is IERC3156FlashBorrower {
     require(initiator == address(this), 'FlashBorrower: Untrusted loan initiator');
     counter++;
 
-    // Always revert when uncomment
-
     /*
+    GhoFlashMinter.flashLoan() always reverts
+
     if (action == Action.FLASH_LOAN && counter < repeat_on_count) {
       uint256 amount_reenter;
       bytes calldata data_reenter;

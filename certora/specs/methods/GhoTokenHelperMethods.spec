@@ -11,4 +11,7 @@ methods{
     function _GhoTokenHelper.hasFacilitatorManagerRole(address account) external returns (bool) envfree;
     function _GhoTokenHelper.hasBacketManagerRole(address account) external returns (bool) envfree;
     function _GhoTokenHelper.compareStrings(string a, string b) external returns (bool) envfree;
+    function _GhoTokenHelper.rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
+    function _GhoTokenHelper.rayDiv(uint256 x, uint256 y) external returns (uint256) envfree;
+    function _GhoTokenHelper.percentMul(uint256 x, uint256 y) external returns (uint256) envfree;
 }
