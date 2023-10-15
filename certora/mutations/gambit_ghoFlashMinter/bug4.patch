@@ -1,0 +1,23 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..1433d83 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -56,7 +56,8 @@ contract GhoFlashMinter is IGhoFlashMinter {
+    * @param addressesProvider The address of the Aave PoolAddressesProvider
+    */
+   constructor(address ghoToken, address ghoTreasury, uint256 fee, address addressesProvider) {
+-    require(fee <= MAX_FEE, 'FlashMinter: Fee out of range');
++    /// DeleteExpressionMutation(`require(fee <= MAX_FEE, 'FlashMinter: Fee out of range')` |==> `assert(true)`) of: `require(fee <= MAX_FEE, 'FlashMinter: Fee out of range');`
++    assert(true);
+     GHO_TOKEN = IGhoToken(ghoToken);
+     _updateGhoTreasury(ghoTreasury);
+     _updateFee(fee);
+@@ -75,7 +76,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+     uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
+     GHO_TOKEN.mint(address(receiver), amount);
+-
++    
+     require(
+       receiver.onFlashLoan(msg.sender, address(GHO_TOKEN), amount, fee, data) == CALLBACK_SUCCESS,
+       'FlashMinter: Callback failed'

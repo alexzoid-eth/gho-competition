@@ -164,7 +164,7 @@ hook Sstore currentContract._underlyingAsset address val STORAGE {
 // Ghost copy of `_ghoVariableDebtToken`
 //
 
-ghost bool ghostGhoVariableDebtTokenTouched;
+ghost bool ghostGhoVariableDebtTokenWritten;
 
 ghost address ghostGhoVariableDebtToken {
     init_state axiom ghostGhoVariableDebtToken == 0;
@@ -176,14 +176,14 @@ hook Sload address val currentContract._ghoVariableDebtToken STORAGE {
 
 hook Sstore currentContract._ghoVariableDebtToken address val STORAGE {
     ghostGhoVariableDebtToken = val;
-    ghostGhoVariableDebtTokenTouched = true;
+    ghostGhoVariableDebtTokenWritten = true;
 }
 
 //
 // Ghost copy of `_ghoTreasury`
 //
 
-ghost bool ghostGhoTreasuryTouched;
+ghost bool ghostGhoTreasuryWritten;
 
 ghost address ghostGhoTreasury {
     init_state axiom ghostGhoTreasury == 0;
@@ -195,11 +195,11 @@ hook Sload address val currentContract._ghoTreasury STORAGE {
 
 hook Sstore currentContract._ghoTreasury address val STORAGE {
     ghostGhoTreasury = val;
-    ghostGhoTreasuryTouched = true;
+    ghostGhoTreasuryWritten = true;
 }
 
 //
-// Check if GHO token was touched
+// Check if GHO token was called
 //
 
 ghost bool ghoTokenCalled;
@@ -400,14 +400,14 @@ rule variableDebtTokenSetOnlyOnce(env e, method f, calldataarg args)
 rule systemVariablesNotSetToZero(env e, method f, calldataarg args) 
     filtered { f -> !VIEW_FUNCTIONS(f) && !INITIALIZE_FUNCTION(f) } {
 
-    require(ghostGhoTreasuryTouched == false);
-    require(ghostGhoVariableDebtTokenTouched == false);
+    require(ghostGhoTreasuryWritten == false);
+    require(ghostGhoVariableDebtTokenWritten == false);
 
     f@withrevert(e, args);
     bool reverted = lastReverted;
 
-    assert(!reverted && ghostGhoTreasuryTouched => ghostGhoTreasury != 0);
-    assert(!reverted && ghostGhoVariableDebtTokenTouched => ghostGhoVariableDebtToken != 0);
+    assert(!reverted && ghostGhoTreasuryWritten => ghostGhoTreasury != 0);
+    assert(!reverted && ghostGhoVariableDebtTokenWritten => ghostGhoVariableDebtToken != 0);
 }
 
 // [28] GhoTreasury could be modified

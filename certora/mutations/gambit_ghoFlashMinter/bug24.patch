@@ -1,0 +1,23 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..a8f25fc 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -75,7 +75,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+     uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
+     GHO_TOKEN.mint(address(receiver), amount);
+-
++    
+     require(
+       receiver.onFlashLoan(msg.sender, address(GHO_TOKEN), amount, fee, data) == CALLBACK_SUCCESS,
+       'FlashMinter: Callback failed'
+@@ -98,7 +98,8 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+   // @inheritdoc IGhoFlashMinter
+   function updateFee(uint256 newFee) external override onlyPoolAdmin {
+-    _updateFee(newFee);
++    /// DeleteExpressionMutation(`_updateFee(newFee)` |==> `assert(true)`) of: `_updateFee(newFee);`
++    assert(true);
+   }
+ 
+   /// @inheritdoc IGhoFacilitator

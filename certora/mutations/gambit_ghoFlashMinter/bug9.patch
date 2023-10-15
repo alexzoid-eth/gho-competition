@@ -1,0 +1,23 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..73c2692 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -59,7 +59,8 @@ contract GhoFlashMinter is IGhoFlashMinter {
+     require(fee <= MAX_FEE, 'FlashMinter: Fee out of range');
+     GHO_TOKEN = IGhoToken(ghoToken);
+     _updateGhoTreasury(ghoTreasury);
+-    _updateFee(fee);
++    /// DeleteExpressionMutation(`_updateFee(fee)` |==> `assert(true)`) of: `_updateFee(fee);`
++    assert(true);
+     ADDRESSES_PROVIDER = IPoolAddressesProvider(addressesProvider);
+     ACL_MANAGER = IACLManager(IPoolAddressesProvider(addressesProvider).getACLManager());
+   }
+@@ -75,7 +76,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+     uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
+     GHO_TOKEN.mint(address(receiver), amount);
+-
++    
+     require(
+       receiver.onFlashLoan(msg.sender, address(GHO_TOKEN), amount, fee, data) == CALLBACK_SUCCESS,
+       'FlashMinter: Callback failed'

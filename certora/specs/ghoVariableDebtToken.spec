@@ -26,6 +26,7 @@ methods{
     function rayMul(uint256 x, uint256 y) external returns (uint256) envfree;
     function rayDiv(uint256 x, uint256 y) external returns (uint256) envfree;
     // added
+    function percentMul(uint256 x, uint256 y) external returns (uint256) envfree;
     function getRevisionHarness() external returns (uint256) envfree;
     function getPoolAddress() external returns (address) envfree;
     function calculateDomainSeparator() external returns (bytes32);
@@ -84,7 +85,7 @@ methods{
 
     // GhoDiscountRateStrategy
     function _GhoDiscountRateStrategy.calculateDiscountRate(
-        uint256 debtBalance,uint256 discountTokenBalance) external returns (uint256) envfree;
+        uint256 debtBalance, uint256 discountTokenBalance) external returns (uint256) envfree;
 
     // IncentivesController
     function _.handleAction(address account, uint256 oldTotalSupply, uint256 oldAccountBalance) external => NONDET;
@@ -95,9 +96,12 @@ methods{
     // ACLManager
     function _.isPoolAdmin(address) external => CONSTANT;
 
-    // Possibility of run-time optimization
-    function _.rayMul(uint256 a, uint256 b) internal => rayMulUint256(a, b) expect uint256 ALL;
-    function _.rayDiv(uint256 a, uint256 b) internal => rayDivUint256(a, b) expect uint256 ALL;
+    // Revert when b == 0
+    function _.percentMul(uint256 a, uint256 b) internal => percentMul256(a, b) expect uint256 ALL;
+
+    // Possibility of run-time optimization (TODO: need more tests)
+    // function _.rayMul(uint256 a, uint256 b) internal => rayMulUint256(a, b) expect uint256 ALL;
+    // function _.rayDiv(uint256 a, uint256 b) internal => rayDivUint256(a, b) expect uint256 ALL;
 }
 
 ///////////////// DEFINITIONS /////////////////////
@@ -128,6 +132,7 @@ definition HARNESS_FUNCTIONS(method f) returns bool =
     || f.selector == sig:getBalanceOfDiscountToken(address).selector
     || f.selector == sig:rayMul(uint256, uint256).selector
     || f.selector == sig:rayDiv(uint256, uint256).selector
+    || f.selector == sig:percentMul(uint256, uint256).selector
     || f.selector == sig:getRevisionHarness().selector
     || f.selector == sig:getPoolAddress().selector
     || f.selector == sig:calculateDomainSeparator().selector
@@ -138,6 +143,12 @@ definition HARNESS_FUNCTIONS(method f) returns bool =
 
 definition EXCLUDED_FUNCTIONS(method f) returns bool = 
     DISALLOWED_FUNCTIONS(f) || HARNESS_FUNCTIONS(f) || VIEW_FUNCTIONS(f);
+
+definition UPDATE_DISCOUNT_DISTRIBUTION_FUNCTION(method f) returns bool = 
+    f.selector == sig:updateDiscountDistribution(address, address, uint256, uint256, uint256).selector;
+
+definition MINT_FUNCTION(method f) returns bool = 
+    f.selector == sig:mint(address, address, uint256, uint256).selector;
 
 ////////////////// FUNCTIONS //////////////////////
 
@@ -163,6 +174,10 @@ function rayDivUint256(uint256 a, uint256 b) returns uint256 {
     // to avoid overflow, a <= (type(uint256).max - halfB) / RAYs
     require(b != 0 && a <= require_uint256((UINT256_MAX() - (b / 2)) / RAY()));
     return require_uint256((a * RAY() + (b / 2)) / b);
+}
+
+function percentMul256(uint256 a, uint256 b) returns uint256 {
+    return percentMul(a, b);
 }
 
 // Query index_ghost for the index value at the input timestamp
@@ -195,8 +210,8 @@ ghost mapping(uint256 => uint256) index_ghost {
 // Ghost copy of `_ghoAToken`
 //
 
-ghost bool ghostGhoATokenTouched {
-    init_state axiom ghostGhoATokenTouched == false;
+ghost bool ghostGhoATokenWritten {
+    init_state axiom ghostGhoATokenWritten == false;
 }
 
 ghost address ghostGhoAToken {
@@ -209,7 +224,7 @@ hook Sload address val currentContract._ghoAToken STORAGE {
 
 hook Sstore currentContract._ghoAToken address val STORAGE {
     ghostGhoAToken = val;
-    ghostGhoATokenTouched = true;
+    ghostGhoATokenWritten = true;
 }
 
 //
@@ -264,16 +279,19 @@ hook Sstore currentContract._ghoUserState[KEY address i].(offset 0) uint128 val 
 // Ghost copy of `mapping(address => GhoUserState.discountPercent)`
 //
 
+ghost mapping (address => bool) ghostDiscountPercentRead;
+
 ghost mapping (address => uint16) ghostDiscountPercent {
-    init_state axiom forall address i. ghostDiscountPercent[i] == 0;
+    init_state axiom forall address user. ghostDiscountPercent[user] == 0;
 }
 
-hook Sload uint16 val currentContract._ghoUserState[KEY address i].(offset 16) STORAGE {
-    require(ghostDiscountPercent[i] == val);
+hook Sload uint16 val currentContract._ghoUserState[KEY address user].(offset 16) STORAGE {
+    require(ghostDiscountPercent[user] == val);
+    ghostDiscountPercentRead[user] = true;
 }
 
-hook Sstore currentContract._ghoUserState[KEY address i].(offset 16) uint16 val STORAGE {
-    ghostDiscountPercent[i] = val;
+hook Sstore currentContract._ghoUserState[KEY address user].(offset 16) uint16 val STORAGE {
+    ghostDiscountPercent[user] = val;
 }
 
 //
@@ -284,7 +302,12 @@ ghost mapping(address => mapping(address => uint256)) ghostBorrowAllowances {
     init_state axiom forall address key. forall address val. ghostBorrowAllowances[key][val] == 0;
 }
 
-hook Sstore currentContract._borrowAllowances[KEY address key][KEY address val] uint256 amount STORAGE {
+ghost mapping(address => mapping(address => uint256)) ghostBorrowAllowancesPrev {
+    init_state axiom forall address key. forall address val. ghostBorrowAllowancesPrev[key][val] == 0;
+}
+
+hook Sstore currentContract._borrowAllowances[KEY address key][KEY address val] uint256 amount (uint256 prevAmount) STORAGE {
+    ghostBorrowAllowancesPrev[key][val] = prevAmount;
     ghostBorrowAllowances[key][val] = amount;
 }
 
@@ -328,6 +351,8 @@ hook Sstore currentContract._userState[KEY address i].(offset 0) uint128 val (ui
 // Ghost copy of `mapping(address => UserState.additionalData)`
 //
 
+ghost mapping (address => bool) ghostUserStateAdditionalDataRead;
+
 ghost mapping (address => uint256) ghostUserStateAdditionalData {
     init_state axiom forall address user. forall uint256 timestamp. (ghostUserStateAdditionalData[user] >= RAY() 
         && ghostUserStateAdditionalData[user] <= index_ghost[timestamp]);
@@ -335,6 +360,7 @@ ghost mapping (address => uint256) ghostUserStateAdditionalData {
 
 hook Sload uint128 val currentContract._userState[KEY address i].(offset 16) STORAGE {
     require(require_uint128(ghostUserStateAdditionalData[i]) == val);
+    ghostUserStateAdditionalDataRead[i] = true;
 }
 
 hook Sstore currentContract._userState[KEY address i].(offset 16) uint128 val STORAGE {
@@ -906,7 +932,7 @@ rule functionsNotRevert(env e, method f, calldataarg args)
 rule setSystemVariablesRequirements(env e, method f, calldataarg args)
     filtered { f -> !EXCLUDED_FUNCTIONS(f) } {
 
-    require(ghostGhoATokenTouched == false);
+    require(ghostGhoATokenWritten == false);
 
     address ghoATokenBefore = ghostGhoAToken;
     address discountRateStrategyBefore = ghostDiscountRateStrategy;
@@ -930,7 +956,7 @@ rule setSystemVariablesRequirements(env e, method f, calldataarg args)
     assert(ghoATokenBefore != 0 && ghoATokenBefore != ghoATokenAfter => reverted); // 7
 
     // Could not set zero address
-    assert(ghostGhoATokenTouched && ghoATokenAfter == 0 => reverted); // 8
+    assert(ghostGhoATokenWritten && ghoATokenAfter == 0 => reverted); // 8
     assert(discountRateStrategyAfter == 0 && discountRateStrategyBefore != discountRateStrategyAfter => reverted); // 12
     assert(discountTokenAfter == 0 && discountTokenBefore != discountTokenAfter => reverted); // 13
 }
@@ -983,4 +1009,106 @@ rule onlyATokenCouldDecreaseAccumulatedDebtInterest(env e, method f, calldataarg
 
     assert(before > after => e.msg.sender == ghostGhoAToken);
 }
+
+// [g1-2] Only discount token could update discount distribution
+rule onlyDiscountTokenCouldUpdateDiscountDistribution(env e, method f, calldataarg args, address user) 
+    filtered { f -> !EXCLUDED_FUNCTIONS(f) } {
+
+    f@withrevert(e, args);
+    bool reverted = lastReverted;
+
+    assert(!reverted && UPDATE_DISCOUNT_DISTRIBUTION_FUNCTION(f) => e.msg.sender == ghostDiscountToken);
+}
+
+//
+// balanceOf()
+//
+
+// [g18] balanceOf() equal to zero when scaled balance is zero
+rule balanceOfZeroWhenScaledBalanceZero(env e, address user) {
+
+    require(ghostUserStateAdditionalDataRead[user] == false);
+    require(scaledBalanceOf(user) == 0);
+
+    uint256 balance = balanceOf(e, user);
+
+    assert(balance == 0 && ghostUserStateAdditionalDataRead[user] == false);
+}
+
+// [g19] Discount percent matters in balanceOf()
+rule discountPercentMattersInBalanceOf(env e, address user) {
+    
+    require(ghostDiscountPercentRead[user] == false);
+    require(scaledBalanceOf(user) != 0);
+
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 userIndex = ghostUserStateAdditionalData[user];
+    require(index != userIndex);
+
+    balanceOf(e, user);
+
+    assert(ghostDiscountPercentRead[user] == true);
+}
+
+// [g20] Discount percent doesn't matters in balanceOf() when user index equal to current index
+rule discountPercentDoesNotMatterWhenUserIndexEqCurrentIndex(env e, address user) {
+
+    require(ghostDiscountPercentRead[user] == false);
+    require(scaledBalanceOf(user) != 0);
+
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 userIndex = ghostUserStateAdditionalData[user];
+    require(index == userIndex);
+
+    balanceOf(e, user);
+
+    assert(ghostDiscountPercentRead[user] == false);
+}
+
+// [g21] Zero discount percent does not affect balance
+rule zeroDiscountPercentNotAffectBalanceOf(env e, address user) {
+
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 userIndex = ghostUserStateAdditionalData[user];
+
+    require(scaledBalanceOf(user) != 0);
+    require(index != userIndex);
+    require(ghostDiscountPercent[user] == 0);
+
+    balanceOf@withrevert(e, user);
+
+    satisfy(!lastReverted);
+}
+
+// [g23] Discount percent integrity
+rule discountPercentInBalanceOfIntegritry(env e, address user) {
+
+    requireInvariant userIndexSetup(e, user);
+
+    uint256 index = indexAtTimestamp(e.block.timestamp);
+    uint256 userIndex = ghostUserStateAdditionalData[user];
+    uint256 scaledBalance = scaledBalanceOf(user);
+    
+    require(index != userIndex);
+    require(scaledBalance != 0);
+    require(ghostDiscountPercent[user] != 0);
+
+    mathint expectedBalance = rayMulCVL(scaledBalance, index);
+    mathint balanceIncrease = expectedBalance - rayMulCVL(scaledBalance, userIndex);
+    mathint expectedBalanceWithDiscount = expectedBalance - percentMul(require_uint256(balanceIncrease), require_uint256(ghostDiscountPercent[user]));
+
+    uint256 balance = balanceOf(e, user);
+
+    assert(to_mathint(balance) == expectedBalanceWithDiscount);
+}
+
+//
+// mint()
+//
+
+// [g32] Delegator and delegatee could not be the same
+invariant delegatorCannotDecreaseSelfBorrowAllowances(address delegator, address delegatee) 
+    ghostBorrowAllowancesPrev[delegator][delegatee] > ghostBorrowAllowances[delegator][delegatee] 
+        => delegator != delegatee
+    filtered { f -> MINT_FUNCTION(f) }
 

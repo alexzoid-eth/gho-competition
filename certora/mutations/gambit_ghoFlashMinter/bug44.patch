@@ -1,0 +1,23 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..c2eb166 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -75,7 +75,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+     uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
+     GHO_TOKEN.mint(address(receiver), amount);
+-
++    
+     require(
+       receiver.onFlashLoan(msg.sender, address(GHO_TOKEN), amount, fee, data) == CALLBACK_SUCCESS,
+       'FlashMinter: Callback failed'
+@@ -145,7 +145,8 @@ contract GhoFlashMinter is IGhoFlashMinter {
+   function _updateFee(uint256 newFee) internal {
+     require(newFee <= MAX_FEE, 'FlashMinter: Fee out of range');
+     uint256 oldFee = _fee;
+-    _fee = newFee;
++    /// AssignmentMutation(`newFee` |==> `1`) of: `_fee = newFee;`
++    _fee = 1;
+     emit FeeUpdated(oldFee, newFee);
+   }
+ 

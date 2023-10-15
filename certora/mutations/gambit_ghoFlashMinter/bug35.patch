@@ -1,0 +1,23 @@
+diff --git a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+index dc829f0..12fa0f8 100644
+--- a/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
++++ b/src/contracts/facilitators/flashMinter/GhoFlashMinter.sol
+@@ -75,7 +75,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+     uint256 fee = ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
+     GHO_TOKEN.mint(address(receiver), amount);
+-
++    
+     require(
+       receiver.onFlashLoan(msg.sender, address(GHO_TOKEN), amount, fee, data) == CALLBACK_SUCCESS,
+       'FlashMinter: Callback failed'
+@@ -118,7 +118,8 @@ contract GhoFlashMinter is IGhoFlashMinter {
+ 
+   /// @inheritdoc IERC3156FlashLender
+   function flashFee(address token, uint256 amount) external view override returns (uint256) {
+-    require(token == address(GHO_TOKEN), 'FlashMinter: Unsupported currency');
++    /// DeleteExpressionMutation(`require(token == address(GHO_TOKEN), 'FlashMinter: Unsupported currency')` |==> `assert(true)`) of: `require(token == address(GHO_TOKEN), 'FlashMinter: Unsupported currency');`
++    assert(true);
+     return ACL_MANAGER.isFlashBorrower(msg.sender) ? 0 : _flashFee(amount);
+   }
+ 

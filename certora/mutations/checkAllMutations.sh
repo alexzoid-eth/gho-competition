@@ -19,4 +19,5 @@ unset IFS
 for wildcard in "${sorted[@]}"
 do
     certora/mutations/checkMutation.sh $1 $2 $wildcard
+    sleep 5 # git issues
 done

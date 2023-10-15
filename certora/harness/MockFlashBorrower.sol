@@ -60,11 +60,15 @@ contract MockFlashBorrower is IERC3156FlashBorrower {
     address token,
     uint256 amount,
     uint256 fee,
-    bytes calldata data
+    bytes memory data
   ) external override returns (bytes32) {
     require(msg.sender == address(_lender), 'FlashBorrower: Untrusted lender');
     require(initiator == address(this), 'FlashBorrower: Untrusted loan initiator');
     counter++;
+
+    // Always revert when uncomment
+
+    /*
     if (action == Action.FLASH_LOAN && counter < repeat_on_count) {
       uint256 amount_reenter;
       bytes calldata data_reenter;
@@ -130,6 +134,8 @@ contract MockFlashBorrower is IERC3156FlashBorrower {
     } else if (action == Action.OTHER) {
       require(true);
     }
+    */
+
     return keccak256('ERC3156FlashBorrower.onFlashLoan');
   }
 
