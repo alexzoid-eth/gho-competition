@@ -160,13 +160,9 @@ rule balanceOfFlashMinterGrows(method f, env e, calldataarg args)
 }
 
 // Checks the integrity of updateGhoTreasury - after update the given address is set
-rule integrityOfTreasurySet(address token){
-    env e;
+rule integrityOfTreasurySet(env e, address token){
     updateGhoTreasury(e, token);
-
-    address treasury_ = getGhoTreasury(e);
-
-    assert(treasury_ == token);
+    assert(ghostGhoTreasury == token);
 }
 
 // Checks the integrity of updateFee - after update the given value is set

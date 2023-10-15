@@ -151,8 +151,7 @@ contract GhoFlashMinter is IGhoFlashMinter {
 
   function _updateGhoTreasury(address newGhoTreasury) internal {
     address oldGhoTreasury = _ghoTreasury;
-    /// DeleteExpressionMutation(`_ghoTreasury = newGhoTreasury` |==> `assert(true)`) of: `_ghoTreasury = newGhoTreasury;`
-    assert(true);
+    _ghoTreasury = newGhoTreasury;
     emit GhoTreasuryUpdated(oldGhoTreasury, newGhoTreasury);
   }
 }
